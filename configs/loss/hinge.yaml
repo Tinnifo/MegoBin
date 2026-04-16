@@ -1,0 +1,2 @@
+_target_: src.losses.hinge_contrastive.HingeContrastiveLoss
+margin: 1.0

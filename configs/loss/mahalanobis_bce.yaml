@@ -1,0 +1,3 @@
+_target_: src.losses.mahalanobis_bce.MahalanobisBCELoss
+clamp_threshold: 1.0
+include_std: false

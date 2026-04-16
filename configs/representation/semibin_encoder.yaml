@@ -1,0 +1,4 @@
+_target_: src.representations.semibin_encoder.SemiBinEncoder
+input_dim: 136
+embedding_dim: 100
+dropout: 0.2

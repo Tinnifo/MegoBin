@@ -1,0 +1,199 @@
+"""Snakemake pipeline for metagenomic binning.
+
+Run on BioCloud with the pre-installed profile:
+    snakemake --profile biocloud -s hpc/Snakefile --configfile hpc/config.yaml
+
+Wildcards:
+    dataset     — e.g. CAMI_medium, CAMI_high
+    encoder     — poisson, contrastive_mlp, uncertain_gen, semibin_encoder
+    binner      — kmedoids, infomap, dbscan_ensemble
+"""
+
+# ---------------------------------------------------------------------------
+# Config defaults (override via --configfile or --config key=value)
+# ---------------------------------------------------------------------------
+
+DATASETS = config.get("datasets", ["CAMI_medium"])
+ENCODERS = config.get("encoders", ["poisson"])
+BINNERS  = config.get("binners",  ["kmedoids"])
+DATA_DIR = config.get("data_dir", "data")
+RESULTS  = config.get("results_dir", "results")
+THREADS  = config.get("threads", 8)
+
+
+# ---------------------------------------------------------------------------
+# Top-level target
+# ---------------------------------------------------------------------------
+
+rule all:
+    input:
+        expand(
+            f"{RESULTS}/{{dataset}}/{{encoder}}/{{binner}}/checkm2/quality_report.tsv",
+            dataset=DATASETS,
+            encoder=ENCODERS,
+            binner=BINNERS,
+        ),
+
+
+# ---------------------------------------------------------------------------
+# 1. Feature computation (runs once per dataset)
+# ---------------------------------------------------------------------------
+
+rule compute_features:
+    input:
+        fasta=f"{DATA_DIR}/{{dataset}}/contigs.fasta",
+    output:
+        profiles=f"{DATA_DIR}/{{dataset}}/kmer_profiles.npy",
+        names=f"{DATA_DIR}/{{dataset}}/contig_names.npy",
+    threads: THREADS
+    resources:
+        mem_mb=16000,
+        runtime=60,
+    shell:
+        """
+        python -c "
+import numpy as np
+from src.features.kmer_profiles import compute_profiles_from_fasta
+profiles, names = compute_profiles_from_fasta('{input.fasta}', k=4, canonical=False, min_length=2500, max_length=20000)
+np.save('{output.profiles}', profiles)
+np.save('{output.names}', np.array(names))
+print(f'Computed {{profiles.shape[0]}} profiles')
+"
+        """
+
+
+# ---------------------------------------------------------------------------
+# 2. Train encoder (produces a model checkpoint)
+# ---------------------------------------------------------------------------
+
+rule train:
+    input:
+        profiles=f"{DATA_DIR}/{{dataset}}/kmer_profiles.npy",
+    output:
+        model=f"{RESULTS}/{{dataset}}/{{encoder}}/model.pt",
+    threads: THREADS
+    resources:
+        mem_mb=32000,
+        runtime=120,
+        gpus=1,
+    shell:
+        """
+        python src/pipeline.py \
+            --config-name experiment/baseline_rk \
+            representation={wildcards.encoder} \
+            dataset={wildcards.dataset} \
+            hydra.run.dir={RESULTS}/{wildcards.dataset}/{wildcards.encoder}
+        """
+
+
+# ---------------------------------------------------------------------------
+# 3. Encode contigs → embeddings
+# ---------------------------------------------------------------------------
+
+rule encode:
+    input:
+        profiles=f"{DATA_DIR}/{{dataset}}/kmer_profiles.npy",
+        model=f"{RESULTS}/{{dataset}}/{{encoder}}/model.pt",
+    output:
+        embeddings=f"{RESULTS}/{{dataset}}/{{encoder}}/embeddings.npy",
+    threads: 4
+    resources:
+        mem_mb=16000,
+        runtime=30,
+    shell:
+        """
+        python -c "
+import numpy as np, torch
+from hydra import compose, initialize_config_dir
+from hydra.utils import instantiate
+import os
+
+with initialize_config_dir(version_base=None, config_dir=os.path.abspath('configs')):
+    cfg = compose(config_name='experiment/baseline_rk', overrides=['representation={wildcards.encoder}'])
+    model = instantiate(cfg.representation)
+
+state = torch.load('{input.model}', map_location='cpu', weights_only=True)
+model.load_state_dict(state)
+profiles = np.load('{input.profiles}')
+embeddings = model.encode(profiles)
+np.save('{output.embeddings}', embeddings)
+print(f'Encoded {{embeddings.shape}}')
+"
+        """
+
+
+# ---------------------------------------------------------------------------
+# 4. Bin embeddings → cluster assignments
+# ---------------------------------------------------------------------------
+
+rule bin:
+    input:
+        embeddings=f"{RESULTS}/{{dataset}}/{{encoder}}/embeddings.npy",
+    output:
+        labels=f"{RESULTS}/{{dataset}}/{{encoder}}/{{binner}}/labels.npy",
+    threads: 4
+    resources:
+        mem_mb=16000,
+        runtime=30,
+    shell:
+        """
+        python -c "
+import numpy as np
+from hydra import compose, initialize_config_dir
+from hydra.utils import instantiate
+import os
+
+with initialize_config_dir(version_base=None, config_dir=os.path.abspath('configs')):
+    cfg = compose(config_name='experiment/baseline_rk', overrides=['binner={wildcards.binner}'])
+    binner = instantiate(cfg.binner)
+
+embeddings = np.load('{input.embeddings}')
+labels = binner.cluster(embeddings)
+np.save('{output.labels}', labels)
+print(f'{{len(np.unique(labels))}} bins')
+"
+        """
+
+
+# ---------------------------------------------------------------------------
+# 5. Write bin FASTAs + evaluate with CheckM2
+# ---------------------------------------------------------------------------
+
+rule evaluate:
+    input:
+        labels=f"{RESULTS}/{{dataset}}/{{encoder}}/{{binner}}/labels.npy",
+        names=f"{DATA_DIR}/{{dataset}}/contig_names.npy",
+        fasta=f"{DATA_DIR}/{{dataset}}/contigs.fasta",
+    output:
+        report=f"{RESULTS}/{{dataset}}/{{encoder}}/{{binner}}/checkm2/quality_report.tsv",
+    threads: THREADS
+    resources:
+        mem_mb=32000,
+        runtime=120,
+    shell:
+        """
+        python -c "
+import numpy as np
+from pathlib import Path
+from src.features.kmer_profiles import read_fasta
+
+labels = np.load('{input.labels}')
+names = np.load('{input.names}', allow_pickle=True)
+all_names, all_seqs = read_fasta(Path('{input.fasta}'))
+name_to_seq = dict(zip(all_names, all_seqs))
+
+bins_dir = Path('{output.report}').parent / 'bins'
+bins_dir.mkdir(parents=True, exist_ok=True)
+for bid in np.unique(labels):
+    members = names[labels == bid]
+    with open(bins_dir / f'bin_{{bid:04d}}.fasta', 'w') as f:
+        for n in members:
+            seq = name_to_seq.get(str(n), '')
+            if seq:
+                f.write(f'>{{n}}\n{{seq}}\n')
+"
+        checkm2 predict \
+            -i $(dirname {output.report})/bins \
+            -o $(dirname {output.report}) \
+            --threads {threads}
+        """

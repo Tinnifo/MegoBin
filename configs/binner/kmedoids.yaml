@@ -1,0 +1,7 @@
+_target_: src.binners.kmedoids.KMedoidsBinner
+metric: "cityblock"
+similarity: "exp_neg"
+threshold_percentile: 70.0
+medoid_refine_iters: 3
+max_clusters: 1000
+min_bin_size: 10

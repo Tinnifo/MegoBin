@@ -1,0 +1,43 @@
+name: megobin
+channels:
+  - conda-forge
+  - bioconda
+  - pytorch
+  - defaults
+dependencies:
+  # Core
+  - python=3.10
+  - pytorch=2.3.*
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=12.1          # Match CUDA on clusters (DEIS-MCC has 13.2, backward compat)
+  # Pipeline framework
+  - hydra-core>=1.3
+  - omegaconf
+  - snakemake>=8.0
+  # ML / numerics
+  - numpy>=1.24
+  - scipy>=1.10
+  - scikit-learn>=1.2
+  - pandas>=2.0
+  # Graphs (Infomap binner)
+  - python-igraph>=0.11
+  - leidenalg
+  # Experiment tracking
+  - wandb
+  # Data versioning
+  - dvc
+  - dvc-s3                     # Or dvc-gdrive / dvc-ssh depending on your DVC remote
+  # Bioinformatics
+  - bioconda::checkm2
+  - bioconda::prodigal
+  - bioconda::diamond>=2.1
+  - bioconda::hmmer>=3.3
+  # Dev / testing
+  - pytest
+  - pytest-cov
+  - black
+  - ruff
+  # pip-only packages
+  - pip:
+    - infomap                  # Infomap community detection (not on conda)

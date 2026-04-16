@@ -1,0 +1,7 @@
+canonical: true
+k: 4
+dims: 136
+alphabet: "ATGC"
+pseudocount: 1.0e-5
+min_length: 1000
+max_length: null

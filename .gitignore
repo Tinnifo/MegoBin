@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+*.eggs
+
+# Data and model artifacts (use DVC)
+*.pt
+*.npy
+*.npz
+*.h5
+*.sif
+data/*
+!data/.gitkeep
+
+# DVC internals
+.dvc/cache/
+.dvc/tmp/
+
+# W&B local
+wandb/
+
+# Hydra outputs
+outputs/
+multirun/
+
+# Pytest
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Cluster scratch
+/scratch/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+
+# Claude
+CLAUDE-codebase.md
+CLAUDE.md

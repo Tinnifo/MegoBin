@@ -1,0 +1,11 @@
+# @package _global_
+defaults:
+  - _self_
+  - /representation: poisson
+  - /loss: poisson_nll
+  - /binner: kmedoids
+  - /features: full_kmer
+  - /evaluator: checkm2
+
+seed: 42
+dataset: CAMI_medium
