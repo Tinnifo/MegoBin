@@ -1,0 +1,17 @@
+# @package _global_
+defaults:
+  - _self_
+  - /features: canonical_kmer_abundance
+  - /representation: uncertain_gen
+  - /loss: mahalanobis_bce
+  - /binner: kmedoids
+  - /evaluator: checkm2
+  - /pair_sampler: semibin
+
+seed: 42
+dataset: CAMI_medium
+use_abundance: true
+
+representation:
+  input_dim: 236
+  embedding_dim: 256

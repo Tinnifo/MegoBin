@@ -35,6 +35,71 @@ def build_canonical_map(
     return canonical_kmers, kmer_to_idx
 
 
+def compute_kmer_profiles_with_splits(
+    sequences: list[str],
+    k: int = 4,
+    canonical: bool = True,
+    alphabet: str = "ATGC",
+    pseudocount: float = 1e-5,
+    min_length: int = 1000,
+    split_min_length: int = 2000,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute whole-contig and split-contig k-mer profiles.
+
+    Mirrors SemiBin's data.csv / data_split.csv layout: contigs long enough
+    to be halved are cut at their midpoint, with the left halves stacked
+    above the right halves.
+
+    Args:
+        sequences: DNA sequences (non-ACGT bases in k-mer windows are skipped).
+        k: K-mer length.
+        canonical: If True, collapse reverse-complement k-mers.
+        alphabet: Base ordering for column enumeration.
+        pseudocount: Added to raw counts before normalization.
+        min_length: Contigs shorter than this are dropped entirely.
+        split_min_length: Contigs shorter than this are kept whole but not split.
+
+    Returns:
+        whole_profiles: (N, D) — one row per retained contig (len ≥ min_length).
+        split_profiles: (2M, D) — contigs with len ≥ split_min_length are halved;
+            row i is the left half of split-contig i, row i + M is its right half.
+    """
+    kept = [seq for seq in sequences if len(seq) >= min_length]
+
+    whole_profiles = compute_kmer_profiles(
+        kept,
+        k=k,
+        canonical=canonical,
+        alphabet=alphabet,
+        pseudocount=pseudocount,
+    )
+
+    splittable = [seq for seq in kept if len(seq) >= split_min_length]
+    lefts = [seq[: len(seq) // 2] for seq in splittable]
+    rights = [seq[len(seq) // 2 :] for seq in splittable]
+
+    if splittable:
+        left_profiles = compute_kmer_profiles(
+            lefts,
+            k=k,
+            canonical=canonical,
+            alphabet=alphabet,
+            pseudocount=pseudocount,
+        )
+        right_profiles = compute_kmer_profiles(
+            rights,
+            k=k,
+            canonical=canonical,
+            alphabet=alphabet,
+            pseudocount=pseudocount,
+        )
+        split_profiles = np.concatenate([left_profiles, right_profiles], axis=0)
+    else:
+        split_profiles = np.zeros((0, whole_profiles.shape[1]), dtype=np.float64)
+
+    return whole_profiles, split_profiles
+
+
 def compute_kmer_profiles(
     sequences: list[str],
     k: int = 4,

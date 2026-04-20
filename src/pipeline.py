@@ -53,14 +53,20 @@ def main(cfg: DictConfig) -> None:
     dataset = cfg.dataset
 
     kmer_path = data_dir / dataset / "kmer_profiles.npy"
+    abundance_path = data_dir / dataset / "abundance.npy"
     names_path = data_dir / dataset / "contig_names.npy"
 
-    if kmer_path.exists():
-        kmer_profiles = np.load(kmer_path)
-        log.info("Loaded k-mer profiles: %s", kmer_profiles.shape)
-    else:
+    if not kmer_path.exists():
         log.warning("K-mer profiles not found at %s — skipping pipeline run.", kmer_path)
         return
+
+    features = np.load(kmer_path)
+    if cfg.get("use_abundance", False) and abundance_path.exists():
+        abundance = np.load(abundance_path)
+        features = np.concatenate([features, abundance], axis=1)
+        log.info("Loaded features: k-mer + abundance → %s", features.shape)
+    else:
+        log.info("Loaded features (k-mer only): %s", features.shape)
 
     contig_names = np.load(names_path, allow_pickle=True) if names_path.exists() else None
 
@@ -74,7 +80,7 @@ def main(cfg: DictConfig) -> None:
     log.info("Training not yet wired for %s — using current weights.", type(representation).__name__)
 
     # ---- Encode ----
-    embeddings = representation.encode(kmer_profiles)
+    embeddings = representation.encode(features)
     log.info("Embeddings: %s", embeddings.shape)
 
     # ---- Cluster ----

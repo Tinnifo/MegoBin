@@ -40,11 +40,11 @@ class SemiBinEncoder(nn.Module):
         """(batch, input_dim) → (batch, embedding_dim)."""
         return self.net(x)
 
-    def encode(self, kmer_profiles: np.ndarray) -> np.ndarray:
+    def encode(self, features: np.ndarray) -> np.ndarray:
         """(N, input_dim) → (N, embedding_dim).  Inference in eval mode."""
         self.eval()
         with torch.no_grad():
-            x = torch.from_numpy(kmer_profiles).float()
+            x = torch.from_numpy(features).float()
             z = self.forward(x)
         return z.cpu().numpy()
 

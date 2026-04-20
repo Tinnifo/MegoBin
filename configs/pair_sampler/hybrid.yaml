@@ -1,0 +1,4 @@
+_target_: src.data.hybrid_sampler.HybridPairSampler
+neg_per_pos: 1000
+taxonomy_fraction: 0.5
+seed: ${seed}

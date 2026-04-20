@@ -1,0 +1,19 @@
+# @package _global_
+defaults:
+  - _self_
+  - /features: canonical_kmer_abundance
+  - /representation: uncertain_gen
+  - /loss: mahalanobis_bce
+  - /binner: kmedoids
+  - /evaluator: checkm2
+  - /pair_sampler: hybrid
+
+seed: 42
+dataset: CAMI_medium
+use_abundance: true
+
+# UncertainGen encoder input_dim = 136 (canonical k-mer) + abundance_dim.
+# Abundance dim = 2 * num_bams (mean + variance per sample); set per dataset.
+representation:
+  input_dim: 236    # example: 136 + 2*50 BAMs = 236; adjust for dataset
+  embedding_dim: 256

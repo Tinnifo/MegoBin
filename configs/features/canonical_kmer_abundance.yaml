@@ -1,0 +1,9 @@
+canonical: true
+k: 4
+dims: 136          # canonical k-mer width only; total = 136 + abundance_dim
+alphabet: "ATGC"
+pseudocount: 1.0e-5
+min_length: 1000
+max_length: null
+split_min_length: 2000
+use_abundance: true

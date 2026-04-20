@@ -85,21 +85,26 @@ class UncertainGenRepresentation(nn.Module):
     # Representation Protocol
     # ------------------------------------------------------------------
 
-    def encode(self, kmer_profiles: np.ndarray) -> np.ndarray:
-        """(N, input_dim) → (N, embedding_dim).  Returns mean embeddings."""
+    def encode(self, features: np.ndarray) -> np.ndarray:
+        """(N, input_dim) → (N, embedding_dim).  Returns mean embeddings.
+
+        `features` may be a pure k-mer profile or a concatenation of
+        k-mer and abundance vectors — the model is agnostic as long as
+        the width matches `input_dim`.
+        """
         self.eval()
         with torch.no_grad():
-            x = torch.from_numpy(kmer_profiles).float()
+            x = torch.from_numpy(features).float()
             mu = self.mean_head(x)
         return mu.cpu().numpy()
 
     def encode_with_uncertainty(
-        self, kmer_profiles: np.ndarray
+        self, features: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
         """(N, input_dim) → (mean, cov) both (N, embedding_dim)."""
         self.eval()
         with torch.no_grad():
-            x = torch.from_numpy(kmer_profiles).float()
+            x = torch.from_numpy(features).float()
             mu = self.mean_head(x)
             cov = torch.exp(self.cov_head(x))
         return mu.cpu().numpy(), cov.cpu().numpy()

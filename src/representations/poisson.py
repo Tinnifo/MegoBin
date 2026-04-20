@@ -20,10 +20,16 @@ class PoissonRepresentation(nn.Module):
         self.embeddings = nn.Embedding(num_kmers, embedding_dim)
         nn.init.uniform_(self.embeddings.weight, -1.0, 1.0)
 
-    def encode(self, kmer_profiles: np.ndarray) -> np.ndarray:
-        """(N, num_kmers) L1-normalized profiles → (N, embedding_dim)."""
+    def encode(self, features: np.ndarray) -> np.ndarray:
+        """(N, num_kmers) L1-normalized profiles → (N, embedding_dim).
+
+        Note: despite the generic `features` parameter name on the
+        Protocol, Poisson specifically requires L1-normalized k-mer
+        frequency vectors — the matmul z = f^T E only has meaning when
+        rows of `features` are k-mer distributions.
+        """
         E = self.embeddings.weight.detach().cpu().numpy()
-        return kmer_profiles @ E
+        return features @ E
 
     @property
     def embedding_dim(self) -> int:

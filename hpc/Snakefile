@@ -44,6 +44,7 @@ rule compute_features:
         fasta=f"{DATA_DIR}/{{dataset}}/contigs.fasta",
     output:
         profiles=f"{DATA_DIR}/{{dataset}}/kmer_profiles.npy",
+        split_profiles=f"{DATA_DIR}/{{dataset}}/kmer_profiles_split.npy",
         names=f"{DATA_DIR}/{{dataset}}/contig_names.npy",
     threads: THREADS
     resources:
@@ -53,11 +54,16 @@ rule compute_features:
         """
         python -c "
 import numpy as np
-from src.features.kmer_profiles import compute_profiles_from_fasta
-profiles, names = compute_profiles_from_fasta('{input.fasta}', k=4, canonical=False, min_length=2500, max_length=20000)
-np.save('{output.profiles}', profiles)
-np.save('{output.names}', np.array(names))
-print(f'Computed {{profiles.shape[0]}} profiles')
+from src.features.kmer_profiles import read_fasta, compute_kmer_profiles_with_splits
+names, sequences = read_fasta('{input.fasta}')
+filtered = [(n, s) for n, s in zip(names, sequences) if len(s) >= 1000]
+kept_names = [n for n, _ in filtered]
+kept_seqs = [s for _, s in filtered]
+whole, split = compute_kmer_profiles_with_splits(kept_seqs, k=4, canonical=True, alphabet='ATGC', pseudocount=1e-5, min_length=1000, split_min_length=2000)
+np.save('{output.profiles}', whole)
+np.save('{output.split_profiles}', split)
+np.save('{output.names}', np.array(kept_names))
+print(f'Computed {{whole.shape[0]}} whole profiles, {{split.shape[0]}} split half-profiles')
 "
         """
 
