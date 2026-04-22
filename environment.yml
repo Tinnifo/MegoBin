@@ -24,7 +24,9 @@ dependencies:
   - python-igraph>=0.11
   - leidenalg
   # Experiment tracking
-  - wandb
+  - tensorboard
+  - tabulate         # pandas.to_markdown() dependency for TB dataframe logging
+  - pyyaml
   # Data versioning
   - dvc
   - dvc-s3                     # Or dvc-gdrive / dvc-ssh depending on your DVC remote

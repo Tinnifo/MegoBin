@@ -5,6 +5,7 @@ Usage:
     python src/pipeline.py --config-name baseline_rk representation=contrastive_mlp loss=hinge
 """
 
+import inspect
 import logging
 import random
 import sys
@@ -18,7 +19,10 @@ if _PROJECT_ROOT not in sys.path:
 import hydra
 import numpy as np
 import torch
+from hydra.utils import get_class
 from omegaconf import DictConfig, OmegaConf
+
+from src.utils.checkpoints import load_checkpoint
 
 log = logging.getLogger(__name__)
 
@@ -31,11 +35,75 @@ def seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
+def _load_sampler_inputs(dataset_path: Path) -> dict[str, np.ndarray]:
+    """Load any on-disk arrays that samplers might consume.
+
+    Keyed by the kwarg name samplers expect. Missing files are skipped;
+    sampler instantiation will fail with a clear error if a required
+    input isn't available.
+    """
+    candidates = {
+        "features_whole": dataset_path / "features_whole.npy",
+        "features_split": dataset_path / "features_split.npy",
+        "cannot_link_pairs": dataset_path / "cannot_link_pairs.npy",
+        "cooccurrence": dataset_path / "cooccurrence.npy",
+    }
+    loaded: dict[str, np.ndarray] = {}
+    for name, path in candidates.items():
+        if path.exists():
+            loaded[name] = np.load(path)
+            log.info("Loaded sampler input '%s' from %s", name, path)
+    return loaded
+
+
+def _check_signal_compatibility(cfg: DictConfig) -> None:
+    """Fail fast if the feature config needs signals the dataset lacks.
+
+    Both sides opt in: a feature config gains `required_signals: [...]`,
+    a dataset config gains `signals: [...]`. Missing either side is a
+    no-op (so configs that predate this check keep working). When both
+    are present, mismatch aborts with a clear error before any file I/O.
+    """
+    features = cfg.get("features")
+    dataset = cfg.get("dataset")
+    if features is None or dataset is None:
+        return
+    required = features.get("required_signals")
+    provided = dataset.get("signals") if hasattr(dataset, "get") else None
+    if required is None or provided is None:
+        return
+
+    missing = [s for s in required if s not in provided]
+    if missing:
+        dataset_name = dataset.get("name", "<unnamed>")
+        raise ValueError(
+            f"Dataset '{dataset_name}' provides signals {list(provided)} "
+            f"but the feature config requires {list(required)}. "
+            f"Missing: {missing}. Either switch dataset or pick a feature "
+            f"config without those signals."
+        )
+
+
+def _instantiate_sampler(cfg_sampler: DictConfig, data: dict[str, np.ndarray]):
+    """Instantiate a sampler, passing only the data kwargs it declares.
+
+    Introspects the target class' ``__init__`` signature so pipeline.py
+    doesn't need to know which sampler wants which arrays.
+    """
+    sampler_cls = get_class(cfg_sampler._target_)
+    sig = inspect.signature(sampler_cls.__init__)
+    kwargs = {k: v for k, v in data.items() if k in sig.parameters}
+    return hydra.utils.instantiate(cfg_sampler, **kwargs)
+
+
 @hydra.main(version_base=None, config_path="../configs", config_name="experiment/baseline_rk")
 def main(cfg: DictConfig) -> None:
     log.info("Config:\n%s", OmegaConf.to_yaml(cfg))
 
     seed_everything(cfg.seed)
+
+    # ---- Capability check (runs before any I/O) ----
+    _check_signal_compatibility(cfg)
 
     # ---- Instantiate components from config ----
     representation = hydra.utils.instantiate(cfg.representation)
@@ -49,12 +117,20 @@ def main(cfg: DictConfig) -> None:
     log.info("Evaluator:      %s", type(evaluator).__name__)
 
     # ---- Feature loading ----
-    data_dir = Path(cfg.get("data_dir", "data"))
-    dataset = cfg.dataset
+    # `cfg.dataset` is a capability descriptor dict (see configs/dataset/).
+    # Legacy scalar `dataset: <name>` is still supported via `data_dir`.
+    if hasattr(cfg.dataset, "path"):
+        dataset_path = Path(cfg.dataset.path)
+        dataset_name = cfg.dataset.get("name", dataset_path.name)
+    else:
+        data_dir = Path(cfg.get("data_dir", "data"))
+        dataset_path = data_dir / str(cfg.dataset)
+        dataset_name = str(cfg.dataset)
+    log.info("Dataset:        %s (%s)", dataset_name, dataset_path)
 
-    kmer_path = data_dir / dataset / "kmer_profiles.npy"
-    abundance_path = data_dir / dataset / "abundance.npy"
-    names_path = data_dir / dataset / "contig_names.npy"
+    kmer_path = dataset_path / "kmer_profiles.npy"
+    abundance_path = dataset_path / "abundance.npy"
+    names_path = dataset_path / "contig_names.npy"
 
     if not kmer_path.exists():
         log.warning("K-mer profiles not found at %s — skipping pipeline run.", kmer_path)
@@ -70,14 +146,36 @@ def main(cfg: DictConfig) -> None:
 
     contig_names = np.load(names_path, allow_pickle=True) if names_path.exists() else None
 
-    # ---- Train (encoder-specific) ----
-    # Training logic is encoder-dependent.  For the Poisson model the
-    # co-occurrence matrix must be pre-computed and stored alongside the
-    # k-mer profiles.  Contrastive encoders need pair samplers.
-    # This section will be extended per-encoder; the pipeline keeps the
-    # shared orchestration: load → train → encode → cluster → evaluate.
+    # ---- Logger ----
+    logger_cfg = cfg.get("logger")
+    experiment_logger = hydra.utils.instantiate(logger_cfg) if logger_cfg is not None else None
+    if experiment_logger is not None:
+        log.info("Logger:         %s", type(experiment_logger).__name__)
+        experiment_logger.log_config(OmegaConf.to_container(cfg, resolve=True))
 
-    log.info("Training not yet wired for %s — using current weights.", type(representation).__name__)
+    # ---- Load checkpoint OR train ----
+    resume_from = cfg.get("resume_from")
+    if resume_from:
+        log.info("resume_from set — skipping training, loading %s", resume_from)
+        load_checkpoint(representation, resume_from)
+    else:
+        trainer_cfg = cfg.get("trainer")
+        sampler_cfg = cfg.get("pair_sampler")
+
+        if trainer_cfg is not None and sampler_cfg is not None:
+            trainer = hydra.utils.instantiate(trainer_cfg, logger=experiment_logger)
+            log.info("Trainer:        %s", type(trainer).__name__)
+
+            sampler_inputs = _load_sampler_inputs(dataset_path)
+            sampler = _instantiate_sampler(sampler_cfg, sampler_inputs)
+            log.info("Sampler:        %s (size=%d)", type(sampler).__name__, len(sampler))
+
+            trainer.fit(encoder=representation, sampler=sampler, loss_fn=loss_fn)
+        else:
+            log.warning(
+                "No trainer/pair_sampler configured — skipping training "
+                "(encoder will run with its current weights)."
+            )
 
     # ---- Encode ----
     embeddings = representation.encode(features)
@@ -93,7 +191,7 @@ def main(cfg: DictConfig) -> None:
     bins_dir.mkdir(exist_ok=True)
 
     if contig_names is not None:
-        fasta_path = data_dir / dataset / "contigs.fasta"
+        fasta_path = dataset_path / "contigs.fasta"
         if fasta_path.exists():
             from src.features.kmer_profiles import read_fasta
 
@@ -114,8 +212,21 @@ def main(cfg: DictConfig) -> None:
     try:
         scores = evaluator.score(bins_dir)
         log.info("CheckM2 results:\n%s", scores.to_string())
+        if experiment_logger is not None:
+            experiment_logger.log_dataframe("checkm2_results", scores)
+            experiment_logger.log_scalars(
+                {
+                    "eval/mean_completeness": float(scores["completeness"].mean()),
+                    "eval/mean_contamination": float(scores["contamination"].mean()),
+                    "eval/n_bins": float(len(scores)),
+                },
+                step=0,
+            )
     except FileNotFoundError:
         log.warning("CheckM2 not available — skipping evaluation.")
+
+    if experiment_logger is not None:
+        experiment_logger.finish()
 
 
 if __name__ == "__main__":

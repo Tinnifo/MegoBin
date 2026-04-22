@@ -1,15 +1,33 @@
 # @package _global_
+#
+# UncertainGen encoder (two-phase) with SemiBin-style must-link /
+# cannot-link pairs. See CLAUDE-codebase.md § "Encoder Specifications
+# → UncertainGen" and "SemiBin Encoder" (pair-sampling borrowed).
+#
+# Hyperparameters:
+#   - Two-phase Adam lr=1e-3 (both phases), fresh optimizer in phase 2
+#     (configs/trainer/two_phase.yaml)
+#   - Phase 1: 50 epochs mean-only, include_std=False
+#   - Phase 2: 25 epochs cov-only, include_std=True
+#   - Batch 10 000 both phases
+#   - neg_per_pos=500, max_pairs=4M (configs/pair_sampler/semibin.yaml —
+#     matches SemiBin paper's must-link/cannot-link ratio)
+#   - Input dim 236 = 136 canonical k-mer + 2 × 50 BAMs (num_bams for
+#     CAMI_medium; temporary hardcode, see OPE-469)
+
 defaults:
   - _self_
+  - /dataset: CAMI_medium
   - /features: canonical_kmer_abundance
   - /representation: uncertain_gen
   - /loss: mahalanobis_bce
   - /binner: kmedoids
   - /evaluator: checkm2
   - /pair_sampler: semibin
+  - /trainer: two_phase
+  - /logger: tensorboard
 
 seed: 42
-dataset: CAMI_medium
 use_abundance: true
 
 representation:

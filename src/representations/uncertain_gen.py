@@ -35,9 +35,11 @@ class UncertainGenRepresentation(nn.Module):
         hidden_dim: int = 512,
         embedding_dim: int = 256,
         dropout: float = 0.2,
+        include_std: bool = False,
     ):
         super().__init__()
         self._embedding_dim = embedding_dim
+        self.include_std = include_std
 
         self.mean_head = _make_head(input_dim, hidden_dim, embedding_dim, dropout)
         self.cov_head = _make_head(input_dim, hidden_dim, embedding_dim, dropout)
@@ -108,6 +110,36 @@ class UncertainGenRepresentation(nn.Module):
             mu = self.mean_head(x)
             cov = torch.exp(self.cov_head(x))
         return mu.cpu().numpy(), cov.cpu().numpy()
+
+    def training_step(
+        self,
+        batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        loss_fn: nn.Module,
+    ) -> torch.Tensor:
+        """Siamese forward → ``loss_fn(z_i, z_j, label)``.
+
+        In Phase 1 (``include_std=False``) ``z`` is just the mean μ.
+        In Phase 2 (``include_std=True``) ``z`` is ``cat([μ, cov])`` so
+        ``MahalanobisBCELoss`` can split it back into its two parts.
+        The loss's ``include_std`` flag must match the encoder's.
+        """
+        x_i, x_j, label = batch
+        if self.include_std:
+            mu_i, cov_i = self.forward(x_i, include_std=True)
+            mu_j, cov_j = self.forward(x_j, include_std=True)
+            z_i = torch.cat([mu_i, cov_i], dim=-1)
+            z_j = torch.cat([mu_j, cov_j], dim=-1)
+        else:
+            z_i = self.forward(x_i, include_std=False)
+            z_j = self.forward(x_j, include_std=False)
+        return loss_fn(z_i, z_j, label.float())
+
+    def parameter_groups(self) -> dict[str, list[nn.Parameter]]:
+        return {
+            "mean": list(self.mean_head.parameters()),
+            "cov": list(self.cov_head.parameters()),
+            "all": list(self.parameters()),
+        }
 
     @property
     def embedding_dim(self) -> int:

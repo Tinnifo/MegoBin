@@ -31,6 +31,26 @@ class PoissonRepresentation(nn.Module):
         E = self.embeddings.weight.detach().cpu().numpy()
         return features @ E
 
+    def training_step(
+        self,
+        batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        loss_fn: nn.Module,
+    ) -> torch.Tensor:
+        """K-mer pair lookup → ``loss_fn(z_i, z_j, count)``.
+
+        Batch layout: ``(kmer_idx_i, kmer_idx_j, count)``. The sampler is
+        responsible for drawing pairs from an upper-triangle co-occurrence
+        matrix; the encoder just looks up embeddings and forwards them
+        to the Poisson-NLL loss.
+        """
+        idx_i, idx_j, counts = batch
+        z_i = self.embeddings(idx_i)
+        z_j = self.embeddings(idx_j)
+        return loss_fn(z_i, z_j, counts.float())
+
+    def parameter_groups(self) -> dict[str, list[nn.Parameter]]:
+        return {"all": list(self.parameters())}
+
     @property
     def embedding_dim(self) -> int:
         return self._embedding_dim

@@ -20,8 +20,9 @@ data/*
 .dvc/cache/
 .dvc/tmp/
 
-# W&B local
-wandb/
+# TensorBoard event files live under Hydra's outputs/ tree (already
+# ignored below); also ignore a top-level tb/ from any ad-hoc scripts.
+tb/
 
 # Hydra outputs
 outputs/

@@ -1,0 +1,22 @@
+defaults:
+  - /optimizer@optimizer: adam
+  - /scheduler@scheduler: step_lr
+  - _self_
+
+_target_: src.trainers.single_phase.SinglePhaseTrainer
+epochs: 10
+batch_size: 2048
+grad_clip: null
+params: all
+num_workers: 0
+shuffle: true
+device: null       # auto: cuda if available else cpu
+log_every: 50
+logger: null       # pipeline.py injects the configured Logger at instantiate time
+
+# Checkpointing: path defaults to the Hydra run dir so each experiment
+# gets its own encoder.pt alongside its event files. Set to null to
+# disable saving. `checkpoint_every: N` saves an interim snapshot every
+# N epochs; the final checkpoint always saves at end of fit().
+checkpoint_path: ${hydra:runtime.output_dir}/encoder.pt
+checkpoint_every: null

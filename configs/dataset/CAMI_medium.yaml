@@ -1,0 +1,4 @@
+name: CAMI_medium
+path: data/CAMI_medium/
+signals: [kmers, abundance, taxonomy]
+num_bams: 50

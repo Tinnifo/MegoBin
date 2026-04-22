@@ -1,3 +1,4 @@
+required_signals: [kmers, abundance]
 canonical: true
 k: 4
 dims: 136          # canonical k-mer width only; total = 136 + abundance_dim

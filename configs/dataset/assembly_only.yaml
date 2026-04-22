@@ -1,0 +1,7 @@
+# Minimal dataset: raw assembly only, no mapped reads → no abundance,
+# no taxonomy. Useful as a negative compatibility test and for the
+# Poisson encoder which only needs k-mers.
+
+name: assembly_only
+path: data/assembly_only/
+signals: [kmers]

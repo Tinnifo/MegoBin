@@ -1,3 +1,4 @@
+required_signals: [kmers]
 canonical: true
 k: 4
 dims: 136

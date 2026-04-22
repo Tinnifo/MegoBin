@@ -18,8 +18,12 @@ import torch
 
 from src.binners.kmedoids import KMedoidsBinner
 from src.evaluators.checkm2 import CheckM2Evaluator
+from src.losses.bce_contrastive import BCEContrastiveLoss
 from src.losses.poisson_nll import PoissonNLLLoss
+from src.representations.contrastive_mlp import ContrastiveMLP
 from src.representations.poisson import PoissonRepresentation
+from src.representations.semibin_encoder import SemiBinEncoder
+from src.representations.uncertain_gen import UncertainGenRepresentation
 
 
 # ---- Representation --------------------------------------------------------
@@ -46,6 +50,94 @@ class TestPoissonRepresentation:
         profiles = np.random.dirichlet(np.ones(256), size=1)
         z = self.model.encode(profiles)
         assert z.shape == (1, 128)
+
+    def test_parameter_groups(self):
+        groups = self.model.parameter_groups()
+        assert "all" in groups
+        assert len(groups["all"]) > 0
+
+    def test_training_step_returns_scalar_with_grad(self):
+        idx_i = torch.randint(0, 256, (16,))
+        idx_j = torch.randint(0, 256, (16,))
+        counts = torch.rand(16)
+        loss = self.model.training_step((idx_i, idx_j, counts), PoissonNLLLoss())
+        assert loss.shape == ()
+        loss.backward()
+        assert self.model.embeddings.weight.grad is not None
+
+
+# ---- Training-capable encoder contract -------------------------------------
+
+
+class TestContrastiveMLPTrainingContract:
+    def setup_method(self):
+        self.model = ContrastiveMLP(input_dim=32, hidden_dim=16, embedding_dim=8)
+
+    def test_parameter_groups(self):
+        assert "all" in self.model.parameter_groups()
+
+    def test_training_step_returns_scalar_with_grad(self):
+        x_i = torch.randn(16, 32)
+        x_j = torch.randn(16, 32)
+        label = torch.rand(16)
+        loss = self.model.training_step((x_i, x_j, label), BCEContrastiveLoss())
+        assert loss.shape == ()
+        loss.backward()
+
+
+class TestSemiBinEncoderTrainingContract:
+    def setup_method(self):
+        self.model = SemiBinEncoder(input_dim=32, embedding_dim=8)
+
+    def test_parameter_groups(self):
+        assert "all" in self.model.parameter_groups()
+
+    def test_training_step_returns_scalar_with_grad(self):
+        x_i = torch.randn(16, 32)
+        x_j = torch.randn(16, 32)
+        label = torch.rand(16)
+        loss = self.model.training_step((x_i, x_j, label), BCEContrastiveLoss())
+        assert loss.shape == ()
+        loss.backward()
+
+
+class TestUncertainGenTrainingContract:
+    def setup_method(self):
+        self.model = UncertainGenRepresentation(
+            input_dim=32, hidden_dim=16, embedding_dim=8
+        )
+
+    def test_parameter_groups_has_mean_and_cov(self):
+        groups = self.model.parameter_groups()
+        assert set(groups) == {"mean", "cov", "all"}
+        assert len(groups["mean"]) > 0
+        assert len(groups["cov"]) > 0
+
+    def test_training_step_phase1(self):
+        from src.losses.mahalanobis_bce import MahalanobisBCELoss
+
+        self.model.include_std = False
+        x_i = torch.randn(8, 32)
+        x_j = torch.randn(8, 32)
+        label = torch.rand(8)
+        loss = self.model.training_step(
+            (x_i, x_j, label), MahalanobisBCELoss(include_std=False)
+        )
+        assert loss.shape == ()
+        loss.backward()
+
+    def test_training_step_phase2(self):
+        from src.losses.mahalanobis_bce import MahalanobisBCELoss
+
+        self.model.include_std = True
+        x_i = torch.randn(8, 32)
+        x_j = torch.randn(8, 32)
+        label = torch.rand(8)
+        loss = self.model.training_step(
+            (x_i, x_j, label), MahalanobisBCELoss(include_std=True)
+        )
+        assert loss.shape == ()
+        loss.backward()
 
 
 # ---- ContrastiveLoss -------------------------------------------------------

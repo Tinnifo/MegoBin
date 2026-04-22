@@ -1,0 +1,35 @@
+# @package _global_
+#
+# Contrastive MLP encoder × CAMI Toy. Fully-pinned reproducible run.
+# Source: CLAUDE-codebase.md § "Encoder Specifications → Contrastive MLP".
+# Run: python src/pipeline.py --config-name experiment/training/contrastive_mlp_cami_toy
+
+defaults:
+  - _self_
+  - /dataset: CAMI_toy
+  - /representation: contrastive_mlp
+  - /loss: bce
+  - /binner: kmedoids
+  - /features: full_kmer
+  - /evaluator: checkm2
+  - /pair_sampler: uncertain_gen
+  - /trainer: single_phase
+  - /logger: tensorboard
+
+seed: 42
+
+trainer:
+  epochs: 300              # RK spec: 300 epochs
+  batch_size: 10000        # RK spec: 10K pairs per batch
+  optimizer:
+    lr: 1e-3
+  scheduler: null          # RK spec: no scheduler
+
+pair_sampler:
+  neg_per_pos: 200         # RK spec: 200 negatives per positive
+
+representation:
+  input_dim: 256           # full 4-mer (non-canonical)
+  hidden_dim: 512
+  embedding_dim: 256
+  dropout: 0.2

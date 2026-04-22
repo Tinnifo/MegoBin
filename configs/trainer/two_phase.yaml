@@ -1,0 +1,48 @@
+_target_: src.trainers.two_phase.TwoPhaseTrainer
+device: null
+log_every: 50
+logger: null       # pipeline.py injects the configured Logger at instantiate time
+
+# Checkpointing: path defaults to the Hydra run dir so each experiment
+# gets its own encoder.pt alongside its event files. Set to null to
+# disable saving. ``checkpoint_per_phase: true`` also snapshots after
+# each non-final phase (useful for UncertainGen's mean→cov transition).
+checkpoint_path: ${hydra:runtime.output_dir}/encoder.pt
+checkpoint_per_phase: false
+
+# Default schedule targets UncertainGen: train mean first (50 epochs,
+# include_std=False), then freeze mean and train covariance with a
+# fresh Adam (25 epochs, include_std=True). Override ``phases`` in an
+# experiment config to use a different regime.
+phases:
+  - params: mean
+    epochs: 50
+    batch_size: 10000
+    grad_clip: null
+    num_workers: 0
+    shuffle: true
+    optimizer:
+      _target_: torch.optim.Adam
+      _partial_: true
+      lr: 1e-3
+    scheduler: null
+    encoder_attrs:
+      include_std: false
+    loss_attrs:
+      include_std: false
+
+  - params: cov
+    epochs: 25
+    batch_size: 10000
+    grad_clip: null
+    num_workers: 0
+    shuffle: true
+    optimizer:
+      _target_: torch.optim.Adam
+      _partial_: true
+      lr: 1e-3
+    scheduler: null
+    encoder_attrs:
+      include_std: true
+    loss_attrs:
+      include_std: true

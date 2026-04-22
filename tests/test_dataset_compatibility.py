@@ -1,0 +1,152 @@
+"""Dataset capability descriptor + fail-fast signal check.
+
+Covers:
+- Every shipped dataset config parses and has the expected keys.
+- Every feature config declares `required_signals`.
+- All four experiment configs pass the compatibility check.
+- A deliberately mismatched (dataset, features) pair raises with a clear error.
+- Absent `required_signals` or `signals` is a no-op (backwards compatible).
+"""
+
+from pathlib import Path
+
+import pytest
+from hydra import compose, initialize_config_dir
+from omegaconf import OmegaConf
+
+from src.pipeline import _check_signal_compatibility
+
+CONFIG_DIR = str((Path(__file__).parent.parent / "configs").resolve())
+
+
+class TestDatasetConfigs:
+    @pytest.mark.parametrize("name", ["CAMI_toy", "CAMI_medium", "assembly_only"])
+    def test_dataset_has_required_keys(self, name):
+        with initialize_config_dir(version_base=None, config_dir=CONFIG_DIR):
+            cfg = compose(config_name=f"dataset/{name}")
+        assert "name" in cfg.dataset
+        assert "path" in cfg.dataset
+        assert "signals" in cfg.dataset
+        assert isinstance(list(cfg.dataset.signals), list)
+
+
+class TestFeatureConfigs:
+    @pytest.mark.parametrize(
+        "name,expected_signals",
+        [
+            ("canonical_kmer", ["kmers"]),
+            ("full_kmer", ["kmers"]),
+            ("canonical_kmer_abundance", ["kmers", "abundance"]),
+        ],
+    )
+    def test_feature_has_required_signals(self, name, expected_signals):
+        with initialize_config_dir(version_base=None, config_dir=CONFIG_DIR):
+            cfg = compose(config_name=f"features/{name}")
+        assert list(cfg.features.required_signals) == expected_signals
+
+
+class TestExperimentCompatibility:
+    @pytest.mark.parametrize(
+        "name",
+        ["baseline_rk", "random_pairs_only", "semibin_pairs_only", "hybrid_uncertain_gen"],
+    )
+    def test_experiment_passes_check(self, name):
+        with initialize_config_dir(version_base=None, config_dir=CONFIG_DIR):
+            cfg = compose(config_name=f"experiment/{name}")
+        _check_signal_compatibility(cfg)
+
+
+class TestTrainingConfigs:
+    """Per-encoder-per-dataset training configs under experiment/training/."""
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "poisson_cami_toy",
+            "contrastive_mlp_cami_toy",
+            "uncertain_gen_cami_toy",
+            "semibin_cami_toy",
+        ],
+    )
+    def test_training_config_passes_check(self, name):
+        with initialize_config_dir(version_base=None, config_dir=CONFIG_DIR):
+            cfg = compose(config_name=f"experiment/training/{name}")
+        _check_signal_compatibility(cfg)
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "poisson_cami_toy",
+            "contrastive_mlp_cami_toy",
+            "uncertain_gen_cami_toy",
+            "semibin_cami_toy",
+        ],
+    )
+    def test_training_config_fully_specified(self, name):
+        """Every training config must bind all slots so a run is
+        reproducible from the config name alone."""
+        with initialize_config_dir(version_base=None, config_dir=CONFIG_DIR):
+            cfg = compose(config_name=f"experiment/training/{name}")
+        for required in [
+            "dataset",
+            "representation",
+            "loss",
+            "binner",
+            "features",
+            "evaluator",
+            "pair_sampler",
+            "trainer",
+            "logger",
+            "seed",
+        ]:
+            assert required in cfg, f"{name} missing required slot '{required}'"
+
+
+class TestCompatibilityFailures:
+    def test_missing_signal_raises(self):
+        cfg = OmegaConf.create(
+            {
+                "dataset": {"name": "assembly_only", "signals": ["kmers"]},
+                "features": {"required_signals": ["kmers", "abundance"]},
+            }
+        )
+        with pytest.raises(ValueError, match="abundance"):
+            _check_signal_compatibility(cfg)
+
+    def test_all_missing_listed(self):
+        cfg = OmegaConf.create(
+            {
+                "dataset": {"name": "minimal", "signals": []},
+                "features": {"required_signals": ["kmers", "abundance", "taxonomy"]},
+            }
+        )
+        with pytest.raises(ValueError) as exc:
+            _check_signal_compatibility(cfg)
+        msg = str(exc.value)
+        assert "kmers" in msg
+        assert "abundance" in msg
+        assert "taxonomy" in msg
+
+
+class TestBackwardsCompat:
+    def test_no_required_signals_is_noop(self):
+        cfg = OmegaConf.create(
+            {
+                "dataset": {"name": "ds", "signals": ["kmers"]},
+                "features": {"canonical": True},
+            }
+        )
+        _check_signal_compatibility(cfg)
+
+    def test_no_dataset_signals_is_noop(self):
+        cfg = OmegaConf.create(
+            {
+                "dataset": {"name": "ds"},
+                "features": {"required_signals": ["kmers"]},
+            }
+        )
+        _check_signal_compatibility(cfg)
+
+    def test_missing_dataset_is_noop(self):
+        cfg = OmegaConf.create({"features": {"required_signals": ["kmers"]}})
+        _check_signal_compatibility(cfg)

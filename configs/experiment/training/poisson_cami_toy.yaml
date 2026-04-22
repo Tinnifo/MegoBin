@@ -1,0 +1,27 @@
+# @package _global_
+#
+# Poisson co-occurrence encoder × CAMI Toy. Fully-pinned reproducible run.
+# Source: CLAUDE-codebase.md § "Encoder Specifications → Poisson".
+# Run: python src/pipeline.py --config-name experiment/training/poisson_cami_toy
+
+defaults:
+  - _self_
+  - /dataset: CAMI_toy
+  - /representation: poisson
+  - /loss: poisson_nll
+  - /binner: kmedoids
+  - /features: full_kmer
+  - /evaluator: checkm2
+  - /pair_sampler: cooccurrence
+  - /trainer: single_phase
+  - /logger: tensorboard
+
+seed: 42
+
+trainer:
+  epochs: 50
+  batch_size: 4096
+
+representation:
+  num_kmers: 256
+  embedding_dim: 256

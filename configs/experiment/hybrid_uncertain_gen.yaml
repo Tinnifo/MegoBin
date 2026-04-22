@@ -1,19 +1,32 @@
 # @package _global_
+#
+# UncertainGen encoder (two-phase) with hybrid negatives: half drawn
+# from taxonomy cannot-link pairs, half from uniform multinomial —
+# primary configuration. See CLAUDE-codebase.md § "Encoder
+# Specifications → UncertainGen".
+#
+# Hyperparameters:
+#   - Two-phase Adam lr=1e-3 both phases (configs/trainer/two_phase.yaml)
+#   - Phase 1: 50 epochs mean-only; Phase 2: 25 epochs cov-only
+#   - Batch 10 000 both phases
+#   - neg_per_pos=1000, taxonomy_fraction=0.5 (configs/pair_sampler/hybrid.yaml)
+#   - Input dim 236 = 136 canonical k-mer + 2 × 50 BAMs
+
 defaults:
   - _self_
+  - /dataset: CAMI_medium
   - /features: canonical_kmer_abundance
   - /representation: uncertain_gen
   - /loss: mahalanobis_bce
   - /binner: kmedoids
   - /evaluator: checkm2
   - /pair_sampler: hybrid
+  - /trainer: two_phase
+  - /logger: tensorboard
 
 seed: 42
-dataset: CAMI_medium
 use_abundance: true
 
-# UncertainGen encoder input_dim = 136 (canonical k-mer) + abundance_dim.
-# Abundance dim = 2 * num_bams (mean + variance per sample); set per dataset.
 representation:
-  input_dim: 236    # example: 136 + 2*50 BAMs = 236; adjust for dataset
+  input_dim: 236
   embedding_dim: 256
