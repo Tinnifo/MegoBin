@@ -1,8 +1,9 @@
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 import torch
 
 
+@runtime_checkable
 class PairSampler(Protocol):
     """Produces (feature_i, feature_j, label) triples for contrastive training.
 
