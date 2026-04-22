@@ -184,8 +184,3 @@ pytest tests/test_logger.py                    # TensorBoard + NoOp logger
 pytest tests/test_dataset_compatibility.py     # fail-fast signal check
 pytest tests/test_end_to_end.py                # full pipeline on synthetic data
 ```
-
-## Further reading
-
-- [CLAUDE-codebase.md](CLAUDE-codebase.md) — full architecture spec (encoder details, Protocols, hyperparameters, HPC conventions, build order)
-- [CLAUDE.md](CLAUDE.md) — internal notes for Claude Code when working in this repo
