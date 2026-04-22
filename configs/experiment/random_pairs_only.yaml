@@ -19,7 +19,7 @@ defaults:
   - /features: canonical_kmer_abundance
   - /representation: uncertain_gen
   - /loss: mahalanobis_bce
-  - /binner: kmedoids
+  - /binner: infomap
   - /evaluator: checkm2
   - /pair_sampler: uncertain_gen
   - /trainer: two_phase

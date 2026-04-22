@@ -3,7 +3,7 @@
 Covers:
 - Every shipped dataset config parses and has the expected keys.
 - Every feature config declares `required_signals`.
-- All four experiment configs pass the compatibility check.
+- All shipped experiment configs pass the compatibility check.
 - A deliberately mismatched (dataset, features) pair raises with a clear error.
 - Absent `required_signals` or `signals` is a no-op (backwards compatible).
 """
@@ -20,7 +20,7 @@ CONFIG_DIR = str((Path(__file__).parent.parent / "configs").resolve())
 
 
 class TestDatasetConfigs:
-    @pytest.mark.parametrize("name", ["CAMI_toy", "CAMI_medium", "assembly_only"])
+    @pytest.mark.parametrize("name", ["CAMI_toy", "CAMI_medium"])
     def test_dataset_has_required_keys(self, name):
         with initialize_config_dir(version_base=None, config_dir=CONFIG_DIR):
             cfg = compose(config_name=f"dataset/{name}")
@@ -35,7 +35,6 @@ class TestFeatureConfigs:
         "name,expected_signals",
         [
             ("canonical_kmer", ["kmers"]),
-            ("full_kmer", ["kmers"]),
             ("canonical_kmer_abundance", ["kmers", "abundance"]),
         ],
     )
@@ -48,7 +47,7 @@ class TestFeatureConfigs:
 class TestExperimentCompatibility:
     @pytest.mark.parametrize(
         "name",
-        ["baseline_rk", "random_pairs_only", "semibin_pairs_only", "hybrid_uncertain_gen"],
+        ["random_pairs_only", "semibin_pairs_only", "hybrid_uncertain_gen"],
     )
     def test_experiment_passes_check(self, name):
         with initialize_config_dir(version_base=None, config_dir=CONFIG_DIR):
@@ -62,8 +61,6 @@ class TestTrainingConfigs:
     @pytest.mark.parametrize(
         "name",
         [
-            "poisson_cami_toy",
-            "contrastive_mlp_cami_toy",
             "uncertain_gen_cami_toy",
             "semibin_cami_toy",
         ],
@@ -76,8 +73,6 @@ class TestTrainingConfigs:
     @pytest.mark.parametrize(
         "name",
         [
-            "poisson_cami_toy",
-            "contrastive_mlp_cami_toy",
             "uncertain_gen_cami_toy",
             "semibin_cami_toy",
         ],
@@ -106,7 +101,7 @@ class TestCompatibilityFailures:
     def test_missing_signal_raises(self):
         cfg = OmegaConf.create(
             {
-                "dataset": {"name": "assembly_only", "signals": ["kmers"]},
+                "dataset": {"name": "no_abundance", "signals": ["kmers"]},
                 "features": {"required_signals": ["kmers", "abundance"]},
             }
         )

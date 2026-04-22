@@ -14,16 +14,14 @@ Dataset → Features (shared) → Representation → Trainer → Binner → Eval
 
 | Encoder | Architecture | Loss | Distance |
 |---------|--------------|------|----------|
-| **Poisson** | Embedding table (65K params) | Poisson NLL on k-mer co-occurrence | L1 |
-| **Contrastive MLP** | 2-layer Siamese MLP (262K params) | BCE on exp(-d²) | L2 |
 | **UncertainGen** | Dual-head MLP: mean + covariance (526K params) | Mahalanobis BCE | Mahalanobis |
 | **SemiBin** | 3-layer MLP (100-d output) | Hinge contrastive | L2 |
 
-**Binners** ([src/binners/](src/binners/)): K-Medoids (greedy), Infomap (dual k-NN graph + community detection), DBSCAN ensemble.
+**Binners** ([src/binners/](src/binners/)): Infomap (dual k-NN graph + community detection, SemiBin short reads), DBSCAN ensemble (SemiBin long reads).
 
-**Trainers** ([src/trainers/](src/trainers/)): `SinglePhaseTrainer`, `TwoPhaseTrainer` (UncertainGen's mean→cov schedule and any future N-phase regime). Optimizers and schedulers are Hydra `_partial_` factories, so any `torch.optim` / `torch.optim.lr_scheduler` works.
+**Trainers** ([src/trainers/](src/trainers/)): `SinglePhaseTrainer` (SemiBin), `TwoPhaseTrainer` (UncertainGen's mean→cov schedule and any future N-phase regime). Optimizers and schedulers are Hydra `_partial_` factories, so any `torch.optim` / `torch.optim.lr_scheduler` works.
 
-**Samplers** ([src/data/](src/data/)): `UncertainGenPairSampler`, `SemiBinPairSampler`, `HybridPairSampler`, `CooccurrencePairSampler`.
+**Samplers** ([src/data/](src/data/)): `UncertainGenPairSampler`, `SemiBinPairSampler`, `HybridPairSampler`.
 
 **Evaluator** ([src/evaluators/checkm2.py](src/evaluators/checkm2.py)): CheckM2 subprocess wrapper returning a DataFrame of completeness + contamination per bin.
 
@@ -57,22 +55,19 @@ See [environment.def](environment.def) for the container spec.
 
 ```bash
 # Primary baselines (pre-pinned hyperparameters under configs/experiment/)
-python src/pipeline.py --config-name experiment/baseline_rk              # Poisson
 python src/pipeline.py --config-name experiment/hybrid_uncertain_gen     # UncertainGen (primary)
 python src/pipeline.py --config-name experiment/semibin_pairs_only       # UncertainGen + SemiBin pairs
 python src/pipeline.py --config-name experiment/random_pairs_only        # UncertainGen + random pairs
 
 # Fully-reproducible per-(encoder, dataset) runs (configs/experiment/training/)
-python src/pipeline.py --config-name experiment/training/poisson_cami_toy
-python src/pipeline.py --config-name experiment/training/contrastive_mlp_cami_toy
 python src/pipeline.py --config-name experiment/training/uncertain_gen_cami_toy
 python src/pipeline.py --config-name experiment/training/semibin_cami_toy
 
 # Override any slot without editing YAML
-python src/pipeline.py --config-name experiment/baseline_rk representation=contrastive_mlp loss=bce
+python src/pipeline.py --config-name experiment/hybrid_uncertain_gen representation=semibin_encoder loss=hinge binner=dbscan_ensemble
 
 # Resume from a saved checkpoint (skips training)
-python src/pipeline.py --config-name experiment/baseline_rk resume_from=outputs/2026-04-22/12-00-00/encoder.pt
+python src/pipeline.py --config-name experiment/hybrid_uncertain_gen resume_from=outputs/2026-04-22/12-00-00/encoder.pt
 ```
 
 Every run writes TensorBoard event files, a `run_meta.json`, and a checkpoint into a fresh `outputs/<date>/<time>/` directory.
@@ -91,7 +86,7 @@ The pipeline discovers components by Protocol conformance — no registration st
 
 3. **Run it.**
    ```bash
-   python src/pipeline.py --config-name experiment/baseline_rk representation=dnabert_s
+   python src/pipeline.py --config-name experiment/hybrid_uncertain_gen representation=dnabert_s
    ```
 
 4. **Update tests** — extend [tests/test_interfaces.py](tests/test_interfaces.py) with Protocol-compliance and [tests/test_overfit_batch.py](tests/test_overfit_batch.py) with a smoke test that loss decreases on 100 contigs.
@@ -160,7 +155,7 @@ Swap loggers via config: `python src/pipeline.py logger=tensorboard` or `logger=
 sbatch hpc/slurm/biocloud_pipeline.sh CAMI_medium
 
 # DEIS-MCC: GPU training
-sbatch hpc/slurm/mcc_train.sh contrastive_mlp CAMI_medium
+sbatch hpc/slurm/mcc_train.sh uncertain_gen CAMI_medium
 
 # Either cluster: smoke test
 sbatch hpc/slurm/smoke_test.sh

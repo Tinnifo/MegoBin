@@ -1,8 +1,8 @@
 """Main entry point — run experiments via Hydra config composition.
 
 Usage:
-    python src/pipeline.py --config-name baseline_rk
-    python src/pipeline.py --config-name baseline_rk representation=contrastive_mlp loss=hinge
+    python src/pipeline.py --config-name experiment/hybrid_uncertain_gen
+    python src/pipeline.py --config-name experiment/training/semibin_cami_toy
 """
 
 import inspect
@@ -46,7 +46,6 @@ def _load_sampler_inputs(dataset_path: Path) -> dict[str, np.ndarray]:
         "features_whole": dataset_path / "features_whole.npy",
         "features_split": dataset_path / "features_split.npy",
         "cannot_link_pairs": dataset_path / "cannot_link_pairs.npy",
-        "cooccurrence": dataset_path / "cooccurrence.npy",
     }
     loaded: dict[str, np.ndarray] = {}
     for name, path in candidates.items():
@@ -96,7 +95,7 @@ def _instantiate_sampler(cfg_sampler: DictConfig, data: dict[str, np.ndarray]):
     return hydra.utils.instantiate(cfg_sampler, **kwargs)
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="experiment/baseline_rk")
+@hydra.main(version_base=None, config_path="../configs", config_name="experiment/hybrid_uncertain_gen")
 def main(cfg: DictConfig) -> None:
     log.info("Config:\n%s", OmegaConf.to_yaml(cfg))
 

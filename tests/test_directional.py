@@ -1,18 +1,14 @@
 """Perfect-input sanity: perfectly separated embeddings fed into every
-binner must produce near-perfect bins (ARI > 0.95).
+binner must produce reasonable bins.
 
-If the binner can't recover obvious clusters, it's broken.
-
-The threshold_percentile is set per-test so it falls between inter- and
-intra-cluster similarities.  With n clusters of equal size the intra-
-cluster pair fraction ≈ 1/n, so the percentile must be > 100*(1 − 1/n).
+If a binner can't recover obvious clusters, it's broken.
 """
 
 import numpy as np
-import pytest
 from sklearn.metrics import adjusted_rand_score
 
-from src.binners.kmedoids import KMedoidsBinner
+from src.binners.dbscan_ensemble import DBSCANEnsembleBinner
+from src.binners.infomap import InfomapBinner
 
 
 def _make_perfect_clusters(
@@ -22,11 +18,7 @@ def _make_perfect_clusters(
     noise: float = 0.1,
     seed: int = 42,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Generate well-separated clusters with axis-aligned centers.
-
-    Dimension is set to n_clusters so each center occupies its own axis,
-    guaranteeing maximum separation.
-    """
+    """Generate well-separated clusters with axis-aligned centers."""
     rng = np.random.default_rng(seed)
     dim = n_clusters
 
@@ -44,75 +36,27 @@ def _make_perfect_clusters(
     return np.vstack(embeddings), np.concatenate(labels)
 
 
-def _threshold_for(n_clusters: int) -> float:
-    """Return a percentile that sits between inter and intra pairs."""
-    return 100.0 * (1.0 - 0.5 / n_clusters)
-
-
-class TestKMedoidsDirectional:
-    def test_perfect_clusters_l1(self):
+class TestInfomapDirectional:
+    def test_perfect_clusters(self):
         n = 3
-        embeddings, gt = _make_perfect_clusters(n_clusters=n)
-        binner = KMedoidsBinner(
-            metric="cityblock",
-            similarity="exp_neg",
-            threshold_percentile=_threshold_for(n),
-            min_bin_size=10,
-        )
+        embeddings, gt = _make_perfect_clusters(n_clusters=n, points_per_cluster=30)
+        binner = InfomapBinner(k_neighbours=10, n_trials=5)
         labels = binner.cluster(embeddings)
         ari = adjusted_rand_score(gt, labels)
-        assert ari > 0.95, f"ARI = {ari:.3f} (expected > 0.95)"
+        assert ari > 0.9, f"ARI = {ari:.3f} (expected > 0.9)"
 
-    def test_perfect_clusters_l2(self):
+
+class TestDBSCANEnsembleDirectional:
+    def test_perfect_clusters(self):
         n = 3
-        embeddings, gt = _make_perfect_clusters(n_clusters=n)
-        binner = KMedoidsBinner(
-            metric="euclidean",
-            similarity="exp_neg",
-            threshold_percentile=_threshold_for(n),
+        embeddings, gt = _make_perfect_clusters(
+            n_clusters=n, points_per_cluster=30, separation=5.0
+        )
+        binner = DBSCANEnsembleBinner(
+            eps_values=np.linspace(0.5, 3.0, 8).tolist(),
+            min_samples=5,
             min_bin_size=10,
         )
         labels = binner.cluster(embeddings)
         ari = adjusted_rand_score(gt, labels)
-        assert ari > 0.95, f"ARI = {ari:.3f} (expected > 0.95)"
-
-    def test_perfect_clusters_dot(self):
-        n = 3
-        embeddings, gt = _make_perfect_clusters(n_clusters=n, separation=30.0)
-        binner = KMedoidsBinner(
-            metric="euclidean",
-            similarity="dot",
-            threshold_percentile=_threshold_for(n),
-            min_bin_size=10,
-        )
-        labels = binner.cluster(embeddings)
-        ari = adjusted_rand_score(gt, labels)
-        assert ari > 0.95, f"ARI = {ari:.3f} (expected > 0.95)"
-
-    def test_correct_number_of_clusters(self):
-        n = 4
-        embeddings, gt = _make_perfect_clusters(n_clusters=n)
-        binner = KMedoidsBinner(
-            metric="cityblock",
-            similarity="exp_neg",
-            threshold_percentile=_threshold_for(n),
-            min_bin_size=10,
-        )
-        labels = binner.cluster(embeddings)
-        found = len(np.unique(labels))
-        assert found == n, f"Found {found} clusters, expected {n}"
-
-    @pytest.mark.parametrize("n_clusters", [2, 3, 5, 7])
-    def test_various_cluster_counts(self, n_clusters):
-        embeddings, gt = _make_perfect_clusters(n_clusters=n_clusters)
-        binner = KMedoidsBinner(
-            metric="cityblock",
-            similarity="exp_neg",
-            threshold_percentile=_threshold_for(n_clusters),
-            min_bin_size=10,
-        )
-        labels = binner.cluster(embeddings)
-        ari = adjusted_rand_score(gt, labels)
-        assert ari > 0.95, (
-            f"k={n_clusters}: ARI = {ari:.3f} (expected > 0.95)"
-        )
+        assert ari > 0.9, f"ARI = {ari:.3f} (expected > 0.9)"

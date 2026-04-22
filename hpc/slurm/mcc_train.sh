@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-ENCODER="${1:-contrastive_mlp}"
+ENCODER="${1:-uncertain_gen}"
 DATASET="${2:-CAMI_medium}"
 PROJECT_DIR="${SLURM_SUBMIT_DIR:-.}"
 SCRATCH="/scratch/$(whoami)/megobin_${SLURM_JOB_ID}"
@@ -33,7 +33,7 @@ if [ -d "${PROJECT_DIR}/data/${DATASET}" ]; then
 fi
 
 singularity exec --nv "$SIF" python src/pipeline.py \
-    --config-name experiment/baseline_rk \
+    --config-name experiment/hybrid_uncertain_gen \
     representation="$ENCODER" \
     dataset="$DATASET" \
     data_dir="$SCRATCH"

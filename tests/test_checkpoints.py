@@ -17,9 +17,9 @@ import pytest
 import torch
 from torch.utils.data import Dataset
 
-from src.losses.bce_contrastive import BCEContrastiveLoss
+from src.losses.hinge_contrastive import HingeContrastiveLoss
 from src.losses.mahalanobis_bce import MahalanobisBCELoss
-from src.representations.contrastive_mlp import ContrastiveMLP
+from src.representations.semibin_encoder import SemiBinEncoder
 from src.representations.uncertain_gen import UncertainGenRepresentation
 from src.trainers.single_phase import SinglePhaseTrainer
 from src.trainers.two_phase import TwoPhaseTrainer
@@ -43,11 +43,11 @@ class _ToyPairs(Dataset):
 class TestRoundTrip:
     def test_save_load_preserves_embeddings(self, tmp_path):
         torch.manual_seed(0)
-        encoder_a = ContrastiveMLP(input_dim=16, hidden_dim=8, embedding_dim=4)
+        encoder_a = SemiBinEncoder(input_dim=16, embedding_dim=4, dropout=0.0)
         path = save_checkpoint(encoder_a, tmp_path / "nested" / "enc.pt")
         assert path.exists()
 
-        encoder_b = ContrastiveMLP(input_dim=16, hidden_dim=8, embedding_dim=4)
+        encoder_b = SemiBinEncoder(input_dim=16, embedding_dim=4, dropout=0.0)
         rng = np.random.default_rng(1)
         features = rng.standard_normal((20, 16)).astype("float32")
         z_b_before = encoder_b.encode(features)
@@ -60,14 +60,14 @@ class TestRoundTrip:
         assert np.allclose(z_a, z_b_after), "reloaded encoder must match source"
 
     def test_load_missing_raises(self, tmp_path):
-        encoder = ContrastiveMLP(input_dim=4, hidden_dim=4, embedding_dim=2)
+        encoder = SemiBinEncoder(input_dim=4, embedding_dim=2, dropout=0.0)
         with pytest.raises(FileNotFoundError):
             load_checkpoint(encoder, tmp_path / "does_not_exist.pt")
 
 
 class TestSinglePhaseCheckpointing:
     def test_writes_final_checkpoint(self, tmp_path):
-        encoder = ContrastiveMLP(input_dim=16, hidden_dim=8, embedding_dim=4)
+        encoder = SemiBinEncoder(input_dim=16, embedding_dim=4, dropout=0.0)
         trainer = SinglePhaseTrainer(
             optimizer=partial(torch.optim.Adam, lr=1e-2),
             epochs=2,
@@ -75,12 +75,12 @@ class TestSinglePhaseCheckpointing:
             device="cpu",
             checkpoint_path=tmp_path / "enc.pt",
         )
-        trainer.fit(encoder, _ToyPairs(n=32, d=16), BCEContrastiveLoss())
+        trainer.fit(encoder, _ToyPairs(n=32, d=16), HingeContrastiveLoss())
 
         assert (tmp_path / "enc.pt").exists()
 
     def test_writes_interim_checkpoints(self, tmp_path):
-        encoder = ContrastiveMLP(input_dim=16, hidden_dim=8, embedding_dim=4)
+        encoder = SemiBinEncoder(input_dim=16, embedding_dim=4, dropout=0.0)
         trainer = SinglePhaseTrainer(
             optimizer=partial(torch.optim.Adam, lr=1e-2),
             epochs=4,
@@ -89,7 +89,7 @@ class TestSinglePhaseCheckpointing:
             checkpoint_path=tmp_path / "enc.pt",
             checkpoint_every=2,
         )
-        trainer.fit(encoder, _ToyPairs(n=32, d=16), BCEContrastiveLoss())
+        trainer.fit(encoder, _ToyPairs(n=32, d=16), HingeContrastiveLoss())
 
         assert (tmp_path / "enc_epoch2.pt").exists()
         # epoch 4 is the final epoch → final checkpoint, not an interim one
@@ -97,7 +97,7 @@ class TestSinglePhaseCheckpointing:
         assert (tmp_path / "enc.pt").exists()
 
     def test_no_checkpoint_when_path_null(self, tmp_path):
-        encoder = ContrastiveMLP(input_dim=16, hidden_dim=8, embedding_dim=4)
+        encoder = SemiBinEncoder(input_dim=16, embedding_dim=4, dropout=0.0)
         trainer = SinglePhaseTrainer(
             optimizer=partial(torch.optim.Adam, lr=1e-2),
             epochs=1,
@@ -105,7 +105,7 @@ class TestSinglePhaseCheckpointing:
             device="cpu",
             checkpoint_path=None,
         )
-        trainer.fit(encoder, _ToyPairs(n=16, d=16), BCEContrastiveLoss())
+        trainer.fit(encoder, _ToyPairs(n=16, d=16), HingeContrastiveLoss())
         assert list(tmp_path.iterdir()) == []
 
 
@@ -141,6 +141,5 @@ class TestTwoPhaseCheckpointing:
         trainer.fit(encoder, _ToyPairs(n=32, d=16), MahalanobisBCELoss(include_std=False))
 
         assert (tmp_path / "enc_phase1.pt").exists()
-        # phase 2 is final → saved as the main final path, not enc_phase2
         assert not (tmp_path / "enc_phase2.pt").exists()
         assert (tmp_path / "enc.pt").exists()

@@ -15,8 +15,8 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
-from src.losses.bce_contrastive import BCEContrastiveLoss
-from src.representations.contrastive_mlp import ContrastiveMLP
+from src.losses.hinge_contrastive import HingeContrastiveLoss
+from src.representations.semibin_encoder import SemiBinEncoder
 from src.trainers.single_phase import SinglePhaseTrainer
 from src.utils.logger import Logger
 from src.utils.no_op_logger import NoOpLogger
@@ -105,8 +105,8 @@ class _ToyPairs(Dataset):
 class TestTrainerWithTensorBoardLogger:
     def test_single_phase_writes_events(self, tmp_path):
         logger = TensorBoardLogger(logdir=tmp_path / "tb")
-        encoder = ContrastiveMLP(input_dim=16, hidden_dim=8, embedding_dim=4)
-        loss_fn = BCEContrastiveLoss()
+        encoder = SemiBinEncoder(input_dim=16, embedding_dim=4, dropout=0.0)
+        loss_fn = HingeContrastiveLoss()
         sampler = _ToyPairs(n=32, d=16)
 
         trainer = SinglePhaseTrainer(

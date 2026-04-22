@@ -4,7 +4,7 @@ import torch.nn as nn
 
 
 def _make_head(input_dim: int, hidden_dim: int, output_dim: int, dropout: float) -> nn.Sequential:
-    """Build one 2-layer MLP head (same topology as ContrastiveMLP)."""
+    """Build one 2-layer MLP head used by both mean and covariance branches."""
     return nn.Sequential(
         nn.Linear(input_dim, hidden_dim),
         nn.BatchNorm1d(hidden_dim),

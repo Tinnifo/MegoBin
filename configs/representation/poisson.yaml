@@ -1,3 +1,0 @@
-_target_: src.representations.poisson.PoissonRepresentation
-num_kmers: 256
-embedding_dim: 256

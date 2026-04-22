@@ -1,2 +1,0 @@
-_target_: src.data.cooccurrence_sampler.CooccurrencePairSampler
-# `cooccurrence` matrix is injected by pipeline.py at instantiate time.

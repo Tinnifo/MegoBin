@@ -5,8 +5,8 @@ features built to separate into known clusters so we can assert on ARI
 without needing real assemblies / BAM files / CheckM2.
 
 Two passes:
-- UncertainGen + TwoPhaseTrainer (primary)
-- ContrastiveMLP + SinglePhaseTrainer (simpler regression guard)
+- UncertainGen + TwoPhaseTrainer + InfomapBinner (primary)
+- SemiBinEncoder + SinglePhaseTrainer + InfomapBinner (simpler regression guard)
 
 Both must run in under a minute each on CPU so they stay in the
 default `pytest` suite.
@@ -16,16 +16,15 @@ import time
 from functools import partial
 
 import numpy as np
-import pytest
 import torch
 from sklearn.metrics import adjusted_rand_score
 
-from src.binners.kmedoids import KMedoidsBinner
+from src.binners.infomap import InfomapBinner
 from src.data.semibin_sampler import SemiBinPairSampler
 from src.data.uncertain_gen_sampler import UncertainGenPairSampler
-from src.losses.bce_contrastive import BCEContrastiveLoss
+from src.losses.hinge_contrastive import HingeContrastiveLoss
 from src.losses.mahalanobis_bce import MahalanobisBCELoss
-from src.representations.contrastive_mlp import ContrastiveMLP
+from src.representations.semibin_encoder import SemiBinEncoder
 from src.representations.uncertain_gen import UncertainGenRepresentation
 from src.trainers.single_phase import SinglePhaseTrainer
 from src.trainers.two_phase import TwoPhaseTrainer
@@ -43,29 +42,15 @@ def _make_genome_cluster_features(
     seed: int = 0,
     noise: float = 0.05,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Build synthetic features with known genome labels.
-
-    Returns
-    -------
-    features_whole : (N, dim) — one row per contig
-    features_split : (2N, dim) — contig halves (first half of row i
-        paired with row i+N for each contig, UncertainGen-style)
-    labels : (N,) — genome id for each contig
-    """
+    """Build synthetic features with known genome labels."""
     rng = np.random.default_rng(seed)
     genome_profiles = rng.dirichlet(np.ones(dim) * 0.5, size=n_genomes)
 
-    n = n_genomes * contigs_per_genome
     labels = np.repeat(np.arange(n_genomes), contigs_per_genome)
     whole = np.stack(
-        [
-            genome_profiles[g] + rng.normal(0, noise, size=dim)
-            for g in labels
-        ]
+        [genome_profiles[g] + rng.normal(0, noise, size=dim) for g in labels]
     ).astype("float32")
 
-    # split halves: simulate first+second half of each contig by
-    # sampling two slightly different noised profiles per contig
     first = np.stack(
         [genome_profiles[g] + rng.normal(0, noise, size=dim) for g in labels]
     ).astype("float32")
@@ -125,7 +110,7 @@ class TestUncertainGenEndToEnd:
         assert embeddings.shape == (whole.shape[0], 16)
         assert np.isfinite(embeddings).all()
 
-        binner = KMedoidsBinner(min_bin_size=5)
+        binner = InfomapBinner(k_neighbours=10, n_trials=5)
         predicted = binner.cluster(embeddings)
         assert len(predicted) == len(labels)
 
@@ -136,7 +121,7 @@ class TestUncertainGenEndToEnd:
         assert elapsed < 60, f"took {elapsed:.1f}s, needs to stay under 60s"
 
 
-class TestContrastiveMLPEndToEnd:
+class TestSemiBinEndToEnd:
     def test_pipeline_recovers_cluster_structure(self):
         torch.manual_seed(1)
         start = time.perf_counter()
@@ -158,8 +143,8 @@ class TestContrastiveMLPEndToEnd:
             seed=1,
         )
 
-        encoder = ContrastiveMLP(input_dim=32, hidden_dim=32, embedding_dim=16)
-        loss_fn = BCEContrastiveLoss()
+        encoder = SemiBinEncoder(input_dim=32, embedding_dim=16, dropout=0.0)
+        loss_fn = HingeContrastiveLoss()
 
         trainer = SinglePhaseTrainer(
             optimizer=partial(torch.optim.Adam, lr=5e-3),
@@ -170,7 +155,7 @@ class TestContrastiveMLPEndToEnd:
         trainer.fit(encoder, sampler, loss_fn)
 
         embeddings = encoder.encode(whole)
-        predicted = KMedoidsBinner(min_bin_size=5).cluster(embeddings)
+        predicted = InfomapBinner(k_neighbours=10, n_trials=5).cluster(embeddings)
 
         ari = adjusted_rand_score(labels, predicted)
         assert ari > 0.3, f"ARI {ari:.3f} is not above the random baseline"
@@ -181,7 +166,7 @@ class TestContrastiveMLPEndToEnd:
 
 class TestCheckpointResume:
     """Train → save → load → verify the loaded encoder produces identical
-    embeddings. Exercises the OPE-458 save/load path against the trainer."""
+    embeddings."""
 
     def test_resume_produces_identical_embeddings(self, tmp_path):
         from src.utils.checkpoints import load_checkpoint

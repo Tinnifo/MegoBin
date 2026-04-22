@@ -29,7 +29,7 @@ from hydra.utils import instantiate
 import os
 
 with initialize_config_dir(version_base=None, config_dir=os.path.abspath('configs')):
-    cfg = compose(config_name='experiment/baseline_rk')
+    cfg = compose(config_name='experiment/hybrid_uncertain_gen')
     rep = instantiate(cfg.representation)
     loss = instantiate(cfg.loss)
     binner = instantiate(cfg.binner)
