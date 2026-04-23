@@ -1,4 +1,4 @@
-_target_: src.binners.infomap.InfomapBinner
+_target_: megobin.binners.infomap.InfomapBinner
 k_neighbours: 200
 n_trials: 10
 max_bin_size: null

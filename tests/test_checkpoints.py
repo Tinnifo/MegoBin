@@ -17,13 +17,13 @@ import pytest
 import torch
 from torch.utils.data import Dataset
 
-from src.losses.hinge_contrastive import HingeContrastiveLoss
-from src.losses.mahalanobis_bce import MahalanobisBCELoss
-from src.representations.semibin_encoder import SemiBinEncoder
-from src.representations.uncertain_gen import UncertainGenRepresentation
-from src.trainers.single_phase import SinglePhaseTrainer
-from src.trainers.two_phase import TwoPhaseTrainer
-from src.utils.checkpoints import load_checkpoint, save_checkpoint
+from megobin.losses.hinge_contrastive import HingeContrastiveLoss
+from megobin.losses.mahalanobis_bce import MahalanobisBCELoss
+from megobin.representations.semibin_encoder import SemiBinEncoder
+from megobin.representations.uncertain_gen import UncertainGenRepresentation
+from megobin.trainers.single_phase import SinglePhaseTrainer
+from megobin.trainers.two_phase import TwoPhaseTrainer
+from megobin.utils.checkpoints import load_checkpoint, save_checkpoint
 
 
 class _ToyPairs(Dataset):

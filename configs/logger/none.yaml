@@ -1,1 +1,1 @@
-_target_: src.utils.no_op_logger.NoOpLogger
+_target_: megobin.utils.no_op_logger.NoOpLogger

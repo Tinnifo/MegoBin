@@ -15,12 +15,12 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
-from src.losses.hinge_contrastive import HingeContrastiveLoss
-from src.representations.semibin_encoder import SemiBinEncoder
-from src.trainers.single_phase import SinglePhaseTrainer
-from src.utils.logger import Logger
-from src.utils.no_op_logger import NoOpLogger
-from src.utils.tensorboard_logger import TensorBoardLogger
+from megobin.losses.hinge_contrastive import HingeContrastiveLoss
+from megobin.representations.semibin_encoder import SemiBinEncoder
+from megobin.trainers.single_phase import SinglePhaseTrainer
+from megobin.utils.logger import Logger
+from megobin.utils.no_op_logger import NoOpLogger
+from megobin.utils.tensorboard_logger import TensorBoardLogger
 
 
 class TestNoOpLogger:

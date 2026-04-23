@@ -103,7 +103,7 @@ def fake_pysam(monkeypatch):
 
 class TestComputeAbundanceShape:
     def test_output_shape_single_bam(self, fake_pysam):
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         _register_fake_bam(
             "/tmp/one.bam",
@@ -114,7 +114,7 @@ class TestComputeAbundanceShape:
         assert out.shape == (3, 2)
 
     def test_output_shape_multi_bam(self, fake_pysam):
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         for path, depth in [("/tmp/a.bam", 4.0), ("/tmp/b.bam", 8.0), ("/tmp/c.bam", 2.0)]:
             _register_fake_bam(
@@ -132,7 +132,7 @@ class TestComputeAbundanceShape:
 class TestColumnLayout:
     def test_mean_var_interleaved_per_bam(self, fake_pysam):
         """Columns are [mean_0, var_0, mean_1, var_1, ...]."""
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         _register_fake_bam(
             "/tmp/uniform.bam",
@@ -158,7 +158,7 @@ class TestColumnLayout:
 
     def test_bam_order_preserved(self, fake_pysam):
         """Reordering the BAM list permutes the column pairs accordingly."""
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         _register_fake_bam(
             "/tmp/a.bam", lengths={"c0": 50}, depths={"c0": 1.0}
@@ -182,7 +182,7 @@ class TestColumnLayout:
 
 class TestCoverageMath:
     def test_uniform_coverage_has_zero_variance(self, fake_pysam):
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         _register_fake_bam(
             "/tmp/uniform.bam",
@@ -198,7 +198,7 @@ class TestCoverageMath:
 
     def test_empty_bam_yields_zero_coverage(self, fake_pysam):
         """No aligned reads → depth 0 everywhere → no NaN, no Inf."""
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         _register_fake_bam(
             "/tmp/empty.bam",
@@ -214,7 +214,7 @@ class TestCoverageMath:
     def test_zero_length_contig_skipped(self, fake_pysam):
         """Contigs with reference length 0 must not crash and must leave
         their row at its zero-initialized value."""
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         _register_fake_bam(
             "/tmp/mixed.bam",
@@ -231,7 +231,7 @@ class TestCoverageMath:
 
 class TestContigOrdering:
     def test_row_order_matches_input_names(self, fake_pysam):
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         depths = {"c0": 1.0, "c1": 2.0, "c2": 3.0, "c3": 4.0}
         _register_fake_bam(
@@ -250,7 +250,7 @@ class TestNoNaN:
     def test_no_nan_in_combined_output(self, fake_pysam):
         """Combination of varied contig lengths, depths, empty contigs and
         multiple BAMs must not produce NaN or Inf anywhere."""
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         for path, depth in [("/tmp/a.bam", 0.0), ("/tmp/b.bam", 5.5)]:
             _register_fake_bam(

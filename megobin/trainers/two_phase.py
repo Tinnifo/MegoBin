@@ -6,10 +6,10 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
-from src.utils.checkpoints import save_checkpoint
+from megobin.utils.checkpoints import save_checkpoint
 
 if TYPE_CHECKING:
-    from src.utils.logger import Logger
+    from megobin.utils.logger import Logger
 
 log = logging.getLogger(__name__)
 

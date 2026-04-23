@@ -1,4 +1,4 @@
-_target_: src.trainers.two_phase.TwoPhaseTrainer
+_target_: megobin.trainers.two_phase.TwoPhaseTrainer
 device: null
 log_every: 50
 logger: null       # pipeline.py injects the configured Logger at instantiate time

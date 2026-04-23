@@ -2,7 +2,7 @@
 #SBATCH --job-name=megobin-train
 #SBATCH --output=megobin-train_%j.out
 #SBATCH --error=megobin-train_%j.err
-#SBATCH --time=08:00:00
+#SBATCH --time=48:00:00  #  time limit in dd:hh:mm:ss format. 
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:1
@@ -10,7 +10,7 @@
 #SBATCH --mail-type=FAIL
 
 # DEIS-MCC GPU training via Singularity container
-# Usage: sbatch hpc/slurm/mcc_train.sh [ENCODER] [DATASET]
+# Usage: sbatch hpc/slurm/deis_mcc_train.sh [ENCODER] [DATASET]
 
 set -euo pipefail
 
@@ -32,7 +32,7 @@ if [ -d "${PROJECT_DIR}/data/${DATASET}" ]; then
     cp -r "${PROJECT_DIR}/data/${DATASET}" "${SCRATCH}/"
 fi
 
-singularity exec --nv "$SIF" python src/pipeline.py \
+singularity exec --nv "$SIF" python megobin/pipeline.py \
     --config-name experiment/hybrid_uncertain_gen \
     representation="$ENCODER" \
     dataset="$DATASET" \

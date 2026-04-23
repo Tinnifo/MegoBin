@@ -9,8 +9,8 @@ versions must match.
 
 import numpy as np
 
-from src.features.kmer_profiles import compute_kmer_profiles
-from src.features.reverse_complement import reverse_complement
+from megobin.features.kmer_profiles import compute_kmer_profiles
+from megobin.features.reverse_complement import reverse_complement
 
 
 def _random_dna(length: int, rng: np.random.Generator) -> str:

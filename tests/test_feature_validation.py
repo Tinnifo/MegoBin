@@ -11,7 +11,7 @@
 import numpy as np
 import pytest
 
-from src.features.kmer_profiles import (
+from megobin.features.kmer_profiles import (
     build_canonical_map,
     compute_kmer_profiles,
     generate_kmers,

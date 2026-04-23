@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 import torch
 
-from src.data.hybrid_sampler import HybridPairSampler
-from src.data.semibin_sampler import SemiBinPairSampler
-from src.data.uncertain_gen_sampler import UncertainGenPairSampler
+from megobin.data.hybrid_sampler import HybridPairSampler
+from megobin.data.semibin_sampler import SemiBinPairSampler
+from megobin.data.uncertain_gen_sampler import UncertainGenPairSampler
 
 
 D = 8      # feature dimension used across tests

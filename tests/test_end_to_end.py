@@ -19,15 +19,15 @@ import numpy as np
 import torch
 from sklearn.metrics import adjusted_rand_score
 
-from src.binners.infomap import InfomapBinner
-from src.data.semibin_sampler import SemiBinPairSampler
-from src.data.uncertain_gen_sampler import UncertainGenPairSampler
-from src.losses.hinge_contrastive import HingeContrastiveLoss
-from src.losses.mahalanobis_bce import MahalanobisBCELoss
-from src.representations.semibin_encoder import SemiBinEncoder
-from src.representations.uncertain_gen import UncertainGenRepresentation
-from src.trainers.single_phase import SinglePhaseTrainer
-from src.trainers.two_phase import TwoPhaseTrainer
+from megobin.binners.infomap import InfomapBinner
+from megobin.data.semibin_sampler import SemiBinPairSampler
+from megobin.data.uncertain_gen_sampler import UncertainGenPairSampler
+from megobin.losses.hinge_contrastive import HingeContrastiveLoss
+from megobin.losses.mahalanobis_bce import MahalanobisBCELoss
+from megobin.representations.semibin_encoder import SemiBinEncoder
+from megobin.representations.uncertain_gen import UncertainGenRepresentation
+from megobin.trainers.single_phase import SinglePhaseTrainer
+from megobin.trainers.two_phase import TwoPhaseTrainer
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +169,7 @@ class TestCheckpointResume:
     embeddings."""
 
     def test_resume_produces_identical_embeddings(self, tmp_path):
-        from src.utils.checkpoints import load_checkpoint
+        from megobin.utils.checkpoints import load_checkpoint
 
         torch.manual_seed(0)
         whole, split, _ = _make_genome_cluster_features(

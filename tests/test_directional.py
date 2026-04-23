@@ -7,8 +7,8 @@ If a binner can't recover obvious clusters, it's broken.
 import numpy as np
 from sklearn.metrics import adjusted_rand_score
 
-from src.binners.dbscan_ensemble import DBSCANEnsembleBinner
-from src.binners.infomap import InfomapBinner
+from megobin.binners.dbscan_ensemble import DBSCANEnsembleBinner
+from megobin.binners.infomap import InfomapBinner
 
 
 def _make_perfect_clusters(

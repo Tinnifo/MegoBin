@@ -3,7 +3,7 @@ defaults:
   - /scheduler@scheduler: step_lr
   - _self_
 
-_target_: src.trainers.single_phase.SinglePhaseTrainer
+_target_: megobin.trainers.single_phase.SinglePhaseTrainer
 epochs: 10
 batch_size: 2048
 grad_clip: null

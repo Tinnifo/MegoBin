@@ -1,2 +1,2 @@
-_target_: src.losses.hinge_contrastive.HingeContrastiveLoss
+_target_: megobin.losses.hinge_contrastive.HingeContrastiveLoss
 margin: 1.0

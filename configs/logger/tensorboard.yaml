@@ -1,4 +1,4 @@
-_target_: src.utils.tensorboard_logger.TensorBoardLogger
+_target_: megobin.utils.tensorboard_logger.TensorBoardLogger
 # logdir inherits Hydra's per-run output dir so each experiment gets
 # its own event file. Override to point at a shared location for
 # cross-run comparison, e.g. tb_root/{hypothesis_id}/{run_name}.

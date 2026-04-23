@@ -15,13 +15,13 @@ import pandas as pd
 import pytest
 import torch
 
-from src.binners.dbscan_ensemble import DBSCANEnsembleBinner
-from src.binners.infomap import InfomapBinner
-from src.evaluators.checkm2 import CheckM2Evaluator
-from src.losses.hinge_contrastive import HingeContrastiveLoss
-from src.losses.mahalanobis_bce import MahalanobisBCELoss
-from src.representations.semibin_encoder import SemiBinEncoder
-from src.representations.uncertain_gen import UncertainGenRepresentation
+from megobin.binners.dbscan_ensemble import DBSCANEnsembleBinner
+from megobin.binners.infomap import InfomapBinner
+from megobin.evaluators.checkm2 import CheckM2Evaluator
+from megobin.losses.hinge_contrastive import HingeContrastiveLoss
+from megobin.losses.mahalanobis_bce import MahalanobisBCELoss
+from megobin.representations.semibin_encoder import SemiBinEncoder
+from megobin.representations.uncertain_gen import UncertainGenRepresentation
 
 
 # ---- Representation --------------------------------------------------------

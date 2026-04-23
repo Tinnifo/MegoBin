@@ -1,8 +1,7 @@
 # @package _global_
 #
 # SemiBin encoder × CAMI Toy. Fully-pinned reproducible run.
-# Source: CLAUDE-codebase.md § "Encoder Specifications → SemiBin Encoder".
-# Run: python src/pipeline.py --config-name experiment/training/semibin_cami_toy
+# Run: python megobin/pipeline.py --config-name experiment/training/semibin_cami_toy
 
 defaults:
   - _self_

@@ -14,7 +14,7 @@ import pytest
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
-from src.pipeline import _check_signal_compatibility
+from megobin.pipeline import _check_signal_compatibility
 
 CONFIG_DIR = str((Path(__file__).parent.parent / "configs").resolve())
 

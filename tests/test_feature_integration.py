@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.features.kmer_profiles import (
+from megobin.features.kmer_profiles import (
     compute_kmer_profiles,
     compute_kmer_profiles_with_splits,
     compute_profiles_from_fasta,
@@ -122,7 +122,7 @@ def synthetic_dataset(tmp_path):
 
 class TestCombinedShape:
     def test_canonical_kmer_plus_abundance_shape(self, fake_pysam, synthetic_dataset):
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         kmer, names = compute_profiles_from_fasta(
             synthetic_dataset["fasta"],
@@ -154,7 +154,7 @@ class TestCombinedShape:
         assert combined.shape == (len(names), 136 + 2 * num_bams)
 
     def test_full_kmer_plus_abundance_shape(self, fake_pysam, synthetic_dataset):
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         kmer, names = compute_profiles_from_fasta(
             synthetic_dataset["fasta"],
@@ -177,7 +177,7 @@ class TestCombinedShape:
 
 class TestCombinedCleanliness:
     def test_no_nan_or_inf_in_combined(self, fake_pysam, synthetic_dataset):
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         kmer, names = compute_profiles_from_fasta(
             synthetic_dataset["fasta"],
@@ -200,7 +200,7 @@ class TestCombinedCleanliness:
 
     def test_kmer_slice_remains_l1_normalized(self, fake_pysam, synthetic_dataset):
         """Concatenating abundance must not alter the k-mer portion."""
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         kmer, names = compute_profiles_from_fasta(
             synthetic_dataset["fasta"],
@@ -223,7 +223,7 @@ class TestCombinedCleanliness:
         np.testing.assert_allclose(row_sums, 1.0, atol=1e-6)
 
     def test_abundance_slice_non_negative(self, fake_pysam, synthetic_dataset):
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         kmer, names = compute_profiles_from_fasta(
             synthetic_dataset["fasta"],
@@ -250,7 +250,7 @@ class TestContigOrdering:
         Gives each contig a unique depth signature so we can verify that
         the abundance row matches the name at the same index.
         """
-        from src.features.abundance import compute_abundance
+        from megobin.features.abundance import compute_abundance
 
         _, names = compute_profiles_from_fasta(
             synthetic_dataset["fasta"],

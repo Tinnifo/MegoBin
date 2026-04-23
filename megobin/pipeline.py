@@ -22,7 +22,7 @@ import torch
 from hydra.utils import get_class
 from omegaconf import DictConfig, OmegaConf
 
-from src.utils.checkpoints import load_checkpoint
+from megobin.utils.checkpoints import load_checkpoint
 
 log = logging.getLogger(__name__)
 
@@ -192,7 +192,7 @@ def main(cfg: DictConfig) -> None:
     if contig_names is not None:
         fasta_path = dataset_path / "contigs.fasta"
         if fasta_path.exists():
-            from src.features.kmer_profiles import read_fasta
+            from megobin.features.kmer_profiles import read_fasta
 
             all_names, all_seqs = read_fasta(fasta_path)
             name_to_seq = dict(zip(all_names, all_seqs))

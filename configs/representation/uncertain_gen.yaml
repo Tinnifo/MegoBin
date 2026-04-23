@@ -1,4 +1,4 @@
-_target_: src.representations.uncertain_gen.UncertainGenRepresentation
+_target_: megobin.representations.uncertain_gen.UncertainGenRepresentation
 input_dim: 256
 hidden_dim: 512
 embedding_dim: 256

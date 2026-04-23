@@ -10,20 +10,20 @@ Dataset → Features (shared) → Representation → Trainer → Binner → Eval
 
 ## What's in the box
 
-**Encoders** ([src/representations/](src/representations/))
+**Encoders** ([megobin/representations/](megobin/representations/))
 
 | Encoder | Architecture | Loss | Distance |
 |---------|--------------|------|----------|
 | **UncertainGen** | Dual-head MLP: mean + covariance (526K params) | Mahalanobis BCE | Mahalanobis |
 | **SemiBin** | 3-layer MLP (100-d output) | Hinge contrastive | L2 |
 
-**Binners** ([src/binners/](src/binners/)): Infomap (dual k-NN graph + community detection, SemiBin short reads), DBSCAN ensemble (SemiBin long reads).
+**Binners** ([megobin/binners/](megobin/binners/)): Infomap (dual k-NN graph + community detection, SemiBin short reads), DBSCAN ensemble (SemiBin long reads).
 
-**Trainers** ([src/trainers/](src/trainers/)): `SinglePhaseTrainer` (SemiBin), `TwoPhaseTrainer` (UncertainGen's mean→cov schedule and any future N-phase regime). Optimizers and schedulers are Hydra `_partial_` factories, so any `torch.optim` / `torch.optim.lr_scheduler` works.
+**Trainers** ([megobin/trainers/](megobin/trainers/)): `SinglePhaseTrainer` (SemiBin), `TwoPhaseTrainer` (UncertainGen's mean→cov schedule and any future N-phase regime). Optimizers and schedulers are Hydra `_partial_` factories, so any `torch.optim` / `torch.optim.lr_scheduler` works.
 
-**Samplers** ([src/data/](src/data/)): `UncertainGenPairSampler`, `SemiBinPairSampler`, `HybridPairSampler`.
+**Samplers** ([megobin/data/](megobin/data/)): `UncertainGenPairSampler`, `SemiBinPairSampler`, `HybridPairSampler`.
 
-**Evaluator** ([src/evaluators/checkm2.py](src/evaluators/checkm2.py)): CheckM2 subprocess wrapper returning a DataFrame of completeness + contamination per bin.
+**Evaluator** ([megobin/evaluators/checkm2.py](megobin/evaluators/checkm2.py)): CheckM2 subprocess wrapper returning a DataFrame of completeness + contamination per bin.
 
 ## Install
 
@@ -43,10 +43,10 @@ On BioCloud use `mamba` (pre-installed, faster than conda). On any other machine
 singularity build metagenomic-binning.sif environment.def
 
 # DEIS-MCC (GPU):
-singularity exec --nv metagenomic-binning.sif python src/pipeline.py ...
+singularity exec --nv metagenomic-binning.sif python megobin/pipeline.py ...
 
 # BioCloud (GPU — note different flag):
-apptainer run --nvccli metagenomic-binning.sif python src/pipeline.py ...
+apptainer run --nvccli metagenomic-binning.sif python megobin/pipeline.py ...
 ```
 
 See [environment.def](environment.def) for the container spec.
@@ -55,19 +55,19 @@ See [environment.def](environment.def) for the container spec.
 
 ```bash
 # Primary baselines (pre-pinned hyperparameters under configs/experiment/)
-python src/pipeline.py --config-name experiment/hybrid_uncertain_gen     # UncertainGen (primary)
-python src/pipeline.py --config-name experiment/semibin_pairs_only       # UncertainGen + SemiBin pairs
-python src/pipeline.py --config-name experiment/random_pairs_only        # UncertainGen + random pairs
+python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen     # UncertainGen (primary)
+python megobin/pipeline.py --config-name experiment/semibin_pairs_only       # UncertainGen + SemiBin pairs
+python megobin/pipeline.py --config-name experiment/random_pairs_only        # UncertainGen + random pairs
 
 # Fully-reproducible per-(encoder, dataset) runs (configs/experiment/training/)
-python src/pipeline.py --config-name experiment/training/uncertain_gen_cami_toy
-python src/pipeline.py --config-name experiment/training/semibin_cami_toy
+python megobin/pipeline.py --config-name experiment/training/uncertain_gen_cami_toy
+python megobin/pipeline.py --config-name experiment/training/semibin_cami_toy
 
 # Override any slot without editing YAML
-python src/pipeline.py --config-name experiment/hybrid_uncertain_gen representation=semibin_encoder loss=hinge binner=dbscan_ensemble
+python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen representation=semibin_encoder loss=hinge binner=dbscan_ensemble
 
 # Resume from a saved checkpoint (skips training)
-python src/pipeline.py --config-name experiment/hybrid_uncertain_gen resume_from=outputs/2026-04-22/12-00-00/encoder.pt
+python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen resume_from=outputs/2026-04-22/12-00-00/encoder.pt
 ```
 
 Every run writes TensorBoard event files, a `run_meta.json`, and a checkpoint into a fresh `outputs/<date>/<time>/` directory.
@@ -76,22 +76,22 @@ Every run writes TensorBoard event files, a `run_meta.json`, and a checkpoint in
 
 The pipeline discovers components by Protocol conformance — no registration step. To add e.g. a `DNABERT-S` encoder:
 
-1. **Implement the Protocol.** Create [src/representations/dnabert_s.py](src/representations/) subclassing `nn.Module` and satisfying the `Representation` contract in [src/representations/base.py](src/representations/base.py):
+1. **Implement the Protocol.** Create [megobin/representations/dnabert_s.py](megobin/representations/) subclassing `nn.Module` and satisfying the `Representation` contract in [megobin/representations/base.py](megobin/representations/base.py):
    - `encode(features: np.ndarray) -> np.ndarray` — inference path
    - `training_step(batch, loss_fn) -> Tensor` — forward + loss for one batch
    - `parameter_groups() -> dict[str, list[nn.Parameter]]` — named groups for phase-based trainers (at minimum `{"all": [...]}`)
    - `embedding_dim: int` property
 
-2. **Add a config.** Create `configs/representation/dnabert_s.yaml` with `_target_: src.representations.dnabert_s.DNABertS` plus any constructor kwargs.
+2. **Add a config.** Create `configs/representation/dnabert_s.yaml` with `_target_: megobin.representations.dnabert_s.DNABertS` plus any constructor kwargs.
 
 3. **Run it.**
    ```bash
-   python src/pipeline.py --config-name experiment/hybrid_uncertain_gen representation=dnabert_s
+   python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen representation=dnabert_s
    ```
 
 4. **Update tests** — extend [tests/test_interfaces.py](tests/test_interfaces.py) with Protocol-compliance and [tests/test_overfit_batch.py](tests/test_overfit_batch.py) with a smoke test that loss decreases on 100 contigs.
 
-Zero changes to [src/pipeline.py](src/pipeline.py) required. The same recipe works for new losses ([src/losses/](src/losses/)), binners ([src/binners/](src/binners/)), samplers ([src/data/](src/data/)), trainers ([src/trainers/](src/trainers/)), loggers ([src/utils/](src/utils/)) — find the Protocol in the matching `base.py`, implement, add a YAML, done.
+Zero changes to [megobin/pipeline.py](megobin/pipeline.py) required. The same recipe works for new losses ([megobin/losses/](megobin/losses/)), binners ([megobin/binners/](megobin/binners/)), samplers ([megobin/data/](megobin/data/)), trainers ([megobin/trainers/](megobin/trainers/)), loggers ([megobin/utils/](megobin/utils/)) — find the Protocol in the matching `base.py`, implement, add a YAML, done.
 
 ## Project layout
 
@@ -110,7 +110,7 @@ configs/
   evaluator/        CheckM2 config
   experiment/       Composed experiments; training/ holds fully-pinned runs
 
-src/
+megobin/
   representations/  Encoder implementations + Protocol
   losses/           Loss functions + Protocol
   binners/          Clustering implementations + Protocol
@@ -143,7 +143,7 @@ ssh -L 6006:localhost:6006 <cluster>
 tensorboard --logdir outputs/ --port 6006 --bind_all
 ```
 
-Swap loggers via config: `python src/pipeline.py logger=tensorboard` or `logger=none`. Push the `checkpoints/` tree through DVC if you need versioned artifact lineage.
+Swap loggers via config: `python megobin/pipeline.py logger=tensorboard` or `logger=none`. Push the `checkpoints/` tree through DVC if you need versioned artifact lineage.
 
 ## HPC
 
@@ -155,7 +155,7 @@ Swap loggers via config: `python src/pipeline.py logger=tensorboard` or `logger=
 sbatch hpc/slurm/biocloud_pipeline.sh CAMI_medium
 
 # DEIS-MCC: GPU training
-sbatch hpc/slurm/mcc_train.sh uncertain_gen CAMI_medium
+sbatch hpc/slurm/deis_mcc_train.sh uncertain_gen CAMI_medium
 
 # Either cluster: smoke test
 sbatch hpc/slurm/smoke_test.sh
