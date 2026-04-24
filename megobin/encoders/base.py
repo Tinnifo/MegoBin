@@ -6,7 +6,7 @@ import torch.nn as nn
 
 
 @runtime_checkable
-class Representation(Protocol):
+class Encoder(Protocol):
     """Encoder contract.
 
     An encoder must support two modes:

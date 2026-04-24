@@ -63,7 +63,7 @@ This resolves to:
 ```bash
 singularity exec --nv megobin.sif python megobin/pipeline.py \
   --config-name experiment/hybrid_uncertain_gen \
-  representation=uncertain_gen \
+  encoder=uncertain_gen \
   dataset=CAMI_medium \
   data_dir=/scratch/DB56HW@student.aau.dk/megobin_<jobid>
 ```
@@ -133,7 +133,7 @@ The relevant part of `smoke_test.sh`:
 ```python
 with initialize_config_dir(version_base=None, config_dir=os.path.abspath('configs')):
     cfg = compose(config_name='experiment/hybrid_uncertain_gen')
-    rep = instantiate(cfg.representation)
+    enc = instantiate(cfg.encoder)
     loss = instantiate(cfg.loss)
     binner = instantiate(cfg.binner)
     evaluator = instantiate(cfg.evaluator)

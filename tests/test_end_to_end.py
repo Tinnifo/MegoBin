@@ -24,8 +24,8 @@ from megobin.data.semibin_sampler import SemiBinPairSampler
 from megobin.data.uncertain_gen_sampler import UncertainGenPairSampler
 from megobin.losses.hinge_contrastive import HingeContrastiveLoss
 from megobin.losses.mahalanobis_bce import MahalanobisBCELoss
-from megobin.representations.semibin_encoder import SemiBinEncoder
-from megobin.representations.uncertain_gen import UncertainGenRepresentation
+from megobin.encoders.semibin_encoder import SemiBinEncoder
+from megobin.encoders.uncertain_gen import UncertainGenEncoder
 from megobin.trainers.single_phase import SinglePhaseTrainer
 from megobin.trainers.two_phase import TwoPhaseTrainer
 
@@ -80,7 +80,7 @@ class TestUncertainGenEndToEnd:
             features_split=split, neg_per_pos=5, seed=0
         )
 
-        encoder = UncertainGenRepresentation(
+        encoder = UncertainGenEncoder(
             input_dim=32, hidden_dim=32, embedding_dim=16, include_std=False
         )
         loss_fn = MahalanobisBCELoss(include_std=False)
@@ -177,7 +177,7 @@ class TestCheckpointResume:
         )
         sampler = UncertainGenPairSampler(features_split=split, neg_per_pos=5, seed=0)
 
-        encoder_a = UncertainGenRepresentation(
+        encoder_a = UncertainGenEncoder(
             input_dim=32, hidden_dim=32, embedding_dim=16, include_std=False
         )
         trainer = SinglePhaseTrainer(
@@ -192,7 +192,7 @@ class TestCheckpointResume:
 
         z_a = encoder_a.encode(whole)
 
-        encoder_b = UncertainGenRepresentation(
+        encoder_b = UncertainGenEncoder(
             input_dim=32, hidden_dim=32, embedding_dim=16, include_std=False
         )
         load_checkpoint(encoder_b, tmp_path / "enc.pt")

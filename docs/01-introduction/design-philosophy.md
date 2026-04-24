@@ -4,9 +4,9 @@ MegoBin makes four structural decisions up front. Each of them has implications 
 
 ## 1. Slots before code
 
-Every swappable piece of the pipeline is defined by a Python `Protocol`, not a base class or an abstract method. Concretely, `megobin/representations/base.py` defines the `Representation` Protocol; `megobin/binners/base.py` defines `Binner`; and so on for `Evaluator`, `ContrastiveLoss`, `PairSampler`, `Trainer`, and `Logger`.
+Every swappable piece of the pipeline is defined by a Python `Protocol`, not a base class or an abstract method. Concretely, `megobin/encoders/base.py` defines the `Encoder` Protocol; `megobin/binners/base.py` defines `Binner`; and so on for `Evaluator`, `ContrastiveLoss`, `PairSampler`, `Trainer`, and `Logger`.
 
-An encoder is **any** Python object that quacks like a `Representation` — it has `encode(features)`, `training_step(batch, loss_fn)`, `parameter_groups()`, and an `embedding_dim` property. There is no registration step, no parent class to inherit, no decorator. You write a file, Hydra instantiates it, the pipeline calls its methods. The `@runtime_checkable` decorator on each Protocol makes this type-checkable if you want, but nothing enforces it at import time — the test suite does that via `test_interfaces.py`, which `isinstance`-checks every implementation against its Protocol.
+An encoder is **any** Python object that quacks like an `Encoder` — it has `encode(features)`, `training_step(batch, loss_fn)`, `parameter_groups()`, and an `embedding_dim` property. There is no registration step, no parent class to inherit, no decorator. You write a file, Hydra instantiates it, the pipeline calls its methods. The `@runtime_checkable` decorator on each Protocol makes this type-checkable if you want, but nothing enforces it at import time — the test suite does that via `test_interfaces.py`, which `isinstance`-checks every implementation against its Protocol.
 
 The consequence: adding a new encoder means writing one ~100-line Python file plus one ~5-line YAML. There is no "plugin system" to learn, no lifecycle, no registry. The pipeline is 230 lines of straight-line code that instantiates objects and calls methods on them.
 
@@ -20,14 +20,14 @@ A small machinery detail supports this. The `features` config declares `required
 
 ## 3. Hydra for composition, YAML for pinning
 
-All configuration is YAML, composed by [Hydra](https://hydra.cc/). An experiment config under `configs/experiment/` declares its defaults — which dataset, features, representation, loss, binner, trainer, logger, pair sampler, evaluator — and Hydra resolves the graph:
+All configuration is YAML, composed by [Hydra](https://hydra.cc/). An experiment config under `configs/experiment/` declares its defaults — which dataset, features, encoder, loss, binner, trainer, logger, pair sampler, evaluator — and Hydra resolves the graph:
 
 ```yaml
 defaults:
   - _self_
   - /dataset: CAMI_medium
   - /features: canonical_kmer_abundance
-  - /representation: uncertain_gen
+  - /encoder: uncertain_gen
   - /loss: mahalanobis_bce
   - /binner: infomap
   - /evaluator: checkm2

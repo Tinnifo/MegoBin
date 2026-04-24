@@ -7,7 +7,7 @@ defaults:
   - _self_
   - /dataset: CAMI_toy
   - /features: canonical_kmer_abundance
-  - /representation: semibin_encoder
+  - /encoder: semibin_encoder
   - /loss: hinge
   - /binner: infomap
   - /evaluator: checkm2
@@ -29,7 +29,7 @@ trainer:
     step_size: 1
     gamma: 0.9             # SemiBin spec
 
-representation:
+encoder:
   input_dim: 236           # 136 canonical k-mer + 2 × 50 BAMs
   embedding_dim: 100       # SemiBin spec: fixed 100-dim output
   dropout: 0.2

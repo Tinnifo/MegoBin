@@ -14,7 +14,7 @@ def _make_head(input_dim: int, hidden_dim: int, output_dim: int, dropout: float)
     )
 
 
-class UncertainGenRepresentation(nn.Module):
+class UncertainGenEncoder(nn.Module):
     """UncertainGen dual-head Siamese encoder.
 
     Two heads with identical topology:
@@ -84,7 +84,7 @@ class UncertainGenRepresentation(nn.Module):
             p.requires_grad = True
 
     # ------------------------------------------------------------------
-    # Representation Protocol
+    # Encoder Protocol
     # ------------------------------------------------------------------
 
     def encode(self, features: np.ndarray) -> np.ndarray:

@@ -105,12 +105,12 @@ def main(cfg: DictConfig) -> None:
     _check_signal_compatibility(cfg)
 
     # ---- Instantiate components from config ----
-    representation = hydra.utils.instantiate(cfg.representation)
+    encoder = hydra.utils.instantiate(cfg.encoder)
     loss_fn = hydra.utils.instantiate(cfg.loss)
     binner = hydra.utils.instantiate(cfg.binner)
     evaluator = hydra.utils.instantiate(cfg.evaluator)
 
-    log.info("Representation: %s", type(representation).__name__)
+    log.info("Encoder:        %s", type(encoder).__name__)
     log.info("Loss:           %s", type(loss_fn).__name__)
     log.info("Binner:         %s", type(binner).__name__)
     log.info("Evaluator:      %s", type(evaluator).__name__)
@@ -156,7 +156,7 @@ def main(cfg: DictConfig) -> None:
     resume_from = cfg.get("resume_from")
     if resume_from:
         log.info("resume_from set — skipping training, loading %s", resume_from)
-        load_checkpoint(representation, resume_from)
+        load_checkpoint(encoder, resume_from)
     else:
         trainer_cfg = cfg.get("trainer")
         sampler_cfg = cfg.get("pair_sampler")
@@ -169,7 +169,7 @@ def main(cfg: DictConfig) -> None:
             sampler = _instantiate_sampler(sampler_cfg, sampler_inputs)
             log.info("Sampler:        %s (size=%d)", type(sampler).__name__, len(sampler))
 
-            trainer.fit(encoder=representation, sampler=sampler, loss_fn=loss_fn)
+            trainer.fit(encoder=encoder, sampler=sampler, loss_fn=loss_fn)
         else:
             log.warning(
                 "No trainer/pair_sampler configured — skipping training "
@@ -177,7 +177,7 @@ def main(cfg: DictConfig) -> None:
             )
 
     # ---- Encode ----
-    embeddings = representation.encode(features)
+    embeddings = encoder.encode(features)
     log.info("Embeddings: %s", embeddings.shape)
 
     # ---- Cluster ----

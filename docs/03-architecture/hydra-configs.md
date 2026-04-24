@@ -10,7 +10,7 @@ The full `configs/` tree is about 20 files. Every subfolder maps to one slot in 
 configs/
 ├── dataset/                 CAMI_medium.yaml, CAMI_toy.yaml
 ├── features/                canonical_kmer.yaml, canonical_kmer_abundance.yaml
-├── representation/          uncertain_gen.yaml, semibin_encoder.yaml
+├── encoder/                 uncertain_gen.yaml, semibin_encoder.yaml
 ├── loss/                    hinge.yaml, mahalanobis_bce.yaml
 ├── binner/                  infomap.yaml, dbscan_ensemble.yaml
 ├── evaluator/               checkm2.yaml
@@ -27,21 +27,21 @@ Each leaf file specifies exactly one instantiable object: a dataset descriptor, 
 
 ## A single YAML file — what's inside
 
-The simplest shape is a slot config. `configs/representation/uncertain_gen.yaml` is four lines:
+The simplest shape is a slot config. `configs/encoder/uncertain_gen.yaml` is four lines:
 
 ```yaml
-_target_: megobin.representations.uncertain_gen.UncertainGenRepresentation
+_target_: megobin.encoders.uncertain_gen.UncertainGenEncoder
 input_dim: 256
 hidden_dim: 512
 embedding_dim: 256
 dropout: 0.2
 ```
 
-`_target_` is the fully-qualified Python class name Hydra will import and instantiate. Everything else is keyword arguments passed to that class's `__init__`. When `pipeline.py` calls `hydra.utils.instantiate(cfg.representation)`, it runs:
+`_target_` is the fully-qualified Python class name Hydra will import and instantiate. Everything else is keyword arguments passed to that class's `__init__`. When `pipeline.py` calls `hydra.utils.instantiate(cfg.encoder)`, it runs:
 
 ```python
-from megobin.representations.uncertain_gen import UncertainGenRepresentation
-UncertainGenRepresentation(input_dim=256, hidden_dim=512, embedding_dim=256, dropout=0.2)
+from megobin.encoders.uncertain_gen import UncertainGenEncoder
+UncertainGenEncoder(input_dim=256, hidden_dim=512, embedding_dim=256, dropout=0.2)
 ```
 
 That's all there is to component instantiation.
@@ -71,7 +71,7 @@ defaults:
   - _self_
   - /dataset: CAMI_medium
   - /features: canonical_kmer_abundance
-  - /representation: uncertain_gen
+  - /encoder: uncertain_gen
   - /loss: mahalanobis_bce
   - /binner: infomap
   - /evaluator: checkm2
@@ -82,27 +82,27 @@ defaults:
 seed: 42
 use_abundance: true
 
-representation:
+encoder:
   input_dim: 236
   embedding_dim: 256
 ```
 
-Three things are happening. First, the `# @package _global_` directive tells Hydra "merge my keys into the top-level config" rather than nesting under an `experiment:` key. Second, the `defaults:` list pulls in one file from each slot folder — Hydra resolves the paths relative to `configs/` and merges them into a single DictConfig. Third, the final block overrides `seed`, `use_abundance`, and two fields of the `representation` section. The `representation.input_dim` override in particular says "start from `configs/representation/uncertain_gen.yaml`, then replace `input_dim: 256` with `input_dim: 236`" — that 236 is 136 canonical k-mers + 2 × 50 BAM coverage features.
+Three things are happening. First, the `# @package _global_` directive tells Hydra "merge my keys into the top-level config" rather than nesting under an `experiment:` key. Second, the `defaults:` list pulls in one file from each slot folder — Hydra resolves the paths relative to `configs/` and merges them into a single DictConfig. Third, the final block overrides `seed`, `use_abundance`, and two fields of the `encoder` section. The `encoder.input_dim` override in particular says "start from `configs/encoder/uncertain_gen.yaml`, then replace `input_dim: 256` with `input_dim: 236`" — that 236 is 136 canonical k-mers + 2 × 50 BAM coverage features.
 
 ## CLI overrides
 
 Hydra's dot-notation overrides let you change any value from the command line. Four common patterns:
 
-**Swap a component wholesale.** Replace `representation: uncertain_gen` with `representation: semibin_encoder`:
+**Swap a component wholesale.** Replace `encoder: uncertain_gen` with `encoder: semibin_encoder`:
 
 ```bash
-python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen representation=semibin_encoder
+python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen encoder=semibin_encoder
 ```
 
 **Change a field inside a component.**
 
 ```bash
-python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen representation.dropout=0.3
+python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen encoder.dropout=0.3
 ```
 
 **Add a new key.** Use `+` to add a key that doesn't exist in the base config:
@@ -127,7 +127,7 @@ The project distinguishes two styles of experiment:
 
 **Pinned reproducible runs** live in `configs/experiment/training/` — `uncertain_gen_cami_toy.yaml`, `semibin_cami_toy.yaml`. These specify every slot, cite their hyperparameter sources in inline comments, and are the canonical "re-run this exactly" configs. Convention: one file per (encoder, dataset) pair. Use them when you're ready to publish a result.
 
-The naming rule is simple: `{encoder}_{dataset}.yaml`. To add a new one — say SemiBin on CAMI_medium — copy `semibin_cami_toy.yaml`, swap `/dataset: CAMI_toy` for `/dataset: CAMI_medium`, and adjust `representation.input_dim` to match the new BAM count.
+The naming rule is simple: `{encoder}_{dataset}.yaml`. To add a new one — say SemiBin on CAMI_medium — copy `semibin_cami_toy.yaml`, swap `/dataset: CAMI_toy` for `/dataset: CAMI_medium`, and adjust `encoder.input_dim` to match the new BAM count.
 
 ## The resolved config, in one command
 
@@ -136,7 +136,7 @@ Hydra's `--cfg job` mode is the best single debugging tool. It prints the fully-
 ```bash
 python megobin/pipeline.py \
   --config-name experiment/hybrid_uncertain_gen \
-  representation.dropout=0.5 \
+  encoder.dropout=0.5 \
   --cfg job
 ```
 

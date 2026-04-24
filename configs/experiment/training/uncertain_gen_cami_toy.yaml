@@ -7,7 +7,7 @@ defaults:
   - _self_
   - /dataset: CAMI_toy
   - /features: canonical_kmer_abundance
-  - /representation: uncertain_gen
+  - /encoder: uncertain_gen
   - /loss: mahalanobis_bce
   - /binner: infomap
   - /evaluator: checkm2
@@ -21,7 +21,7 @@ use_abundance: true
 # UncertainGen two-phase defaults (50 + 25 epochs, lr 1e-3, batch 10 000)
 # live in configs/trainer/two_phase.yaml. Override here if needed.
 
-representation:
+encoder:
   input_dim: 236           # 136 canonical k-mer + 2 × 50 BAMs (CAMI_toy num_bams)
   embedding_dim: 256
   dropout: 0.2

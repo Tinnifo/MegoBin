@@ -1,7 +1,7 @@
 """Protocol compliance tests for all components.
 
 Every component must satisfy its Protocol:
-- Representation.encode() returns (N, embedding_dim) ndarray
+- Encoder.encode() returns (N, embedding_dim) ndarray
 - ContrastiveLoss.__call__() returns a scalar tensor with gradients
 - Binner.cluster() returns (N,) integer ndarray
 - Evaluator.score() returns DataFrame with completeness & contamination
@@ -20,11 +20,11 @@ from megobin.binners.infomap import InfomapBinner
 from megobin.evaluators.checkm2 import CheckM2Evaluator
 from megobin.losses.hinge_contrastive import HingeContrastiveLoss
 from megobin.losses.mahalanobis_bce import MahalanobisBCELoss
-from megobin.representations.semibin_encoder import SemiBinEncoder
-from megobin.representations.uncertain_gen import UncertainGenRepresentation
+from megobin.encoders.semibin_encoder import SemiBinEncoder
+from megobin.encoders.uncertain_gen import UncertainGenEncoder
 
 
-# ---- Representation --------------------------------------------------------
+# ---- Encoder ---------------------------------------------------------------
 
 
 class TestSemiBinEncoderTrainingContract:
@@ -53,7 +53,7 @@ class TestSemiBinEncoderTrainingContract:
 
 class TestUncertainGenTrainingContract:
     def setup_method(self):
-        self.model = UncertainGenRepresentation(
+        self.model = UncertainGenEncoder(
             input_dim=32, hidden_dim=16, embedding_dim=8
         )
 

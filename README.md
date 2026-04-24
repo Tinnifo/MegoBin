@@ -3,14 +3,14 @@
 MegoBin is a modular research pipeline for **metagenomic binning** — the problem of clustering assembled contigs into bins that each correspond to a single microbial genome. It exists to support rapid iteration on new deep-learning approaches, particularly for recovering low-abundance and microbial-dark-matter organisms that established tools like VAMB and SemiBin2 struggle with. Every part of the pipeline — encoders, losses, pair samplers, trainers, binners, evaluators, loggers — is a swappable slot defined by a Python `Protocol` and composed via [Hydra](https://hydra.cc/) YAML configs, so adding a new method means writing one file and dropping in a config.
 
 ```
-Dataset → Features (shared) → Representation → Trainer → Binner → Evaluator
-                                    ↑            ↑
-                                Loss, Sampler   Optimizer, Scheduler, Logger
+Dataset → Features (shared) → Encoder → Trainer → Binner → Evaluator
+                                 ↑         ↑
+                          Loss, Sampler   Optimizer, Scheduler, Logger
 ```
 
 ## What's in the box
 
-**Encoders** ([megobin/representations/](megobin/representations/))
+**Encoders** ([megobin/encoders/](megobin/encoders/))
 
 | Encoder | Architecture | Loss | Distance |
 |---------|--------------|------|----------|
@@ -64,7 +64,7 @@ python megobin/pipeline.py --config-name experiment/training/uncertain_gen_cami_
 python megobin/pipeline.py --config-name experiment/training/semibin_cami_toy
 
 # Override any slot without editing YAML
-python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen representation=semibin_encoder loss=hinge binner=dbscan_ensemble
+python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen encoder=semibin_encoder loss=hinge binner=dbscan_ensemble
 
 # Resume from a saved checkpoint (skips training)
 python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen resume_from=outputs/2026-04-22/12-00-00/encoder.pt
@@ -76,20 +76,20 @@ Every run writes TensorBoard event files, a `run_meta.json`, and a checkpoint in
 
 The pipeline discovers components by Protocol conformance — no registration step. To add e.g. a `DNABERT-S` encoder:
 
-1. **Implement the Protocol.** Create [megobin/representations/dnabert_s.py](megobin/representations/) subclassing `nn.Module` and satisfying the `Representation` contract in [megobin/representations/base.py](megobin/representations/base.py):
+1. **Implement the Protocol.** Create [megobin/encoders/dnabert_s.py](megobin/encoders/) subclassing `nn.Module` and satisfying the `Encoder` contract in [megobin/encoders/base.py](megobin/encoders/base.py):
    - `encode(features: np.ndarray) -> np.ndarray` — inference path
    - `training_step(batch, loss_fn) -> Tensor` — forward + loss for one batch
    - `parameter_groups() -> dict[str, list[nn.Parameter]]` — named groups for phase-based trainers (at minimum `{"all": [...]}`)
    - `embedding_dim: int` property
 
-2. **Add a config.** Create `configs/representation/dnabert_s.yaml` with `_target_: megobin.representations.dnabert_s.DNABertS` plus any constructor kwargs.
+2. **Add a config.** Create `configs/encoder/dnabert_s.yaml` with `_target_: megobin.encoders.dnabert_s.DNABertS` plus any constructor kwargs.
 
 3. **Run it.**
    ```bash
-   python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen representation=dnabert_s
+   python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen encoder=dnabert_s
    ```
 
-4. **Update tests** — extend [tests/test_interfaces.py](tests/test_interfaces.py) with Protocol-compliance and [tests/test_overfit_batch.py](tests/test_overfit_batch.py) with a smoke test that loss decreases on 100 contigs.
+4. **Update tests** — extend [tests/test_interfaces.py](tests/test_interfaces.py) with a Protocol-compliance case, and optionally add an end-to-end case to [tests/test_end_to_end.py](tests/test_end_to_end.py) (ARI > 0.3 on synthetic Dirichlet genomes).
 
 Zero changes to [megobin/pipeline.py](megobin/pipeline.py) required. The same recipe works for new losses ([megobin/losses/](megobin/losses/)), binners ([megobin/binners/](megobin/binners/)), samplers ([megobin/data/](megobin/data/)), trainers ([megobin/trainers/](megobin/trainers/)), loggers ([megobin/utils/](megobin/utils/)) — find the Protocol in the matching `base.py`, implement, add a YAML, done.
 
@@ -99,7 +99,7 @@ Zero changes to [megobin/pipeline.py](megobin/pipeline.py) required. The same re
 configs/
   dataset/          Capability descriptors (which signals live on disk)
   features/         K-mer + abundance feature configs
-  representation/   Encoder configs
+  encoder/          Encoder configs
   loss/             Loss configs
   binner/           Binner configs
   pair_sampler/     Sampler configs
@@ -111,7 +111,7 @@ configs/
   experiment/       Composed experiments; training/ holds fully-pinned runs
 
 megobin/
-  representations/  Encoder implementations + Protocol
+  encoders/         Encoder implementations + Protocol
   losses/           Loss functions + Protocol
   binners/          Clustering implementations + Protocol
   evaluators/       CheckM2 wrapper + Protocol
@@ -122,9 +122,7 @@ megobin/
   utils/            Logger Protocol, TensorBoard / no-op implementations,
                     checkpoint save/load
 
-tests/              Protocol compliance, overfit smoke, invariance, directional,
-                    feature validation, pair samplers, trainers, checkpoints,
-                    logger, dataset compatibility, end-to-end integration
+tests/              Protocol compliance, dataset compatibility, end-to-end integration
 
 hpc/                Snakefile + SLURM scripts for BioCloud / DEIS-MCC
 ```
@@ -167,15 +165,7 @@ Features (small `.npy`) flow BioCloud → DEIS-MCC via `rsync`; trained `.pt` ch
 
 ```bash
 pytest tests/                                  # full suite
-pytest tests/test_interfaces.py                # Protocol compliance
-pytest tests/test_overfit_batch.py             # encoder smoke test
-pytest tests/test_invariance.py                # reverse complement invariance
-pytest tests/test_directional.py               # binner sanity (ARI > 0.95)
-pytest tests/test_feature_validation.py        # k-mer profile data checks
-pytest tests/test_pair_samplers.py             # pair sampler shapes
-pytest tests/test_trainers.py                  # trainer + phase isolation
-pytest tests/test_checkpoints.py               # save/load round-trip
-pytest tests/test_logger.py                    # TensorBoard + NoOp logger
-pytest tests/test_dataset_compatibility.py     # fail-fast signal check
-pytest tests/test_end_to_end.py                # full pipeline on synthetic data
+pytest tests/test_interfaces.py                # Protocol compliance for every component
+pytest tests/test_dataset_compatibility.py     # fail-fast signal check + required-slot coverage
+pytest tests/test_end_to_end.py                # full pipeline on synthetic Dirichlet genomes
 ```

@@ -34,7 +34,7 @@ fi
 
 singularity exec --nv "$SIF" python megobin/pipeline.py \
     --config-name experiment/hybrid_uncertain_gen \
-    representation="$ENCODER" \
+    encoder="$ENCODER" \
     dataset="$DATASET" \
     data_dir="$SCRATCH"
 

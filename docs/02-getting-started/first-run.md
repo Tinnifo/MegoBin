@@ -36,7 +36,7 @@ python megobin/pipeline.py \
   --cfg job
 ```
 
-You should see the composed YAML printed to stdout. Verify the `dataset.path`, `features.k`, `representation._target_`, and `trainer.phases` look right. If any of these are missing or surprising, Hydra's composition is misbehaving — usually a typo in a `defaults:` entry.
+You should see the composed YAML printed to stdout. Verify the `dataset.path`, `features.k`, `encoder._target_`, and `trainer.phases` look right. If any of these are missing or surprising, Hydra's composition is misbehaving — usually a typo in a `defaults:` entry.
 
 ## Step 3 — Launch the real run
 
@@ -51,7 +51,7 @@ On a recent MacBook Pro this takes ten to fifteen minutes. On a T4 GPU it finish
   seed: 42
   dataset: {name: CAMI_toy, path: data/CAMI_toy, signals: [kmers, abundance, taxonomy], num_bams: 50}
   ...
-[megobin.pipeline] Representation: UncertainGenRepresentation
+[megobin.pipeline] Encoder:        UncertainGenEncoder
 [megobin.pipeline] Loss:           MahalanobisBCELoss
 [megobin.pipeline] Binner:         InfomapBinner
 [megobin.pipeline] Evaluator:      CheckM2Evaluator
@@ -121,6 +121,6 @@ The `outputs/` directory is the canonical logdir. If you run more experiments la
 
 ## What you just did
 
-You composed an experiment from eight YAML files (dataset, features, representation, loss, binner, evaluator, pair_sampler, trainer, logger), Hydra resolved them into a single config, `pipeline.py` instantiated every component, the trainer ran two phases of training, Infomap clustered the resulting embeddings, and CheckM2 scored the bins. Every step was a call through a Protocol — `encoder.training_step(...)`, `binner.cluster(...)`, `evaluator.score(...)` — and no two components imported from each other.
+You composed an experiment from eight YAML files (dataset, features, encoder, loss, binner, evaluator, pair_sampler, trainer, logger), Hydra resolved them into a single config, `pipeline.py` instantiated every component, the trainer ran two phases of training, Infomap clustered the resulting embeddings, and CheckM2 scored the bins. Every step was a call through a Protocol — `encoder.training_step(...)`, `binner.cluster(...)`, `evaluator.score(...)` — and no two components imported from each other.
 
 The next chapter explains where the output files live and what each one means.

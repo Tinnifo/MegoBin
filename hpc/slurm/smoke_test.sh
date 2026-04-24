@@ -30,11 +30,11 @@ import os
 
 with initialize_config_dir(version_base=None, config_dir=os.path.abspath('configs')):
     cfg = compose(config_name='experiment/hybrid_uncertain_gen')
-    rep = instantiate(cfg.representation)
+    enc = instantiate(cfg.encoder)
     loss = instantiate(cfg.loss)
     binner = instantiate(cfg.binner)
     evaluator = instantiate(cfg.evaluator)
-    print(f'OK: {type(rep).__name__}, {type(loss).__name__}, {type(binner).__name__}, {type(evaluator).__name__}')
+    print(f'OK: {type(enc).__name__}, {type(loss).__name__}, {type(binner).__name__}, {type(evaluator).__name__}')
 "
 
 echo "=== Smoke test passed ==="

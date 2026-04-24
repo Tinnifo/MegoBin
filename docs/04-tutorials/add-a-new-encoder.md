@@ -6,14 +6,14 @@ The worked example here is intentionally **a stub**, not a real DNABERT-S implem
 
 ## Goal
 
-Create `megobin/representations/dnabert_s.py` satisfying the `Representation` Protocol, add `configs/representation/dnabert_s.yaml`, run the pipeline with it via a CLI override, and extend `tests/test_interfaces.py` to cover the new encoder.
+Create `megobin/encoders/dnabert_s.py` satisfying the `Encoder` Protocol, add `configs/encoder/dnabert_s.yaml`, run the pipeline with it via a CLI override, and extend `tests/test_interfaces.py` to cover the new encoder.
 
 ## Step 1 — Know the Protocol
 
-From `megobin/representations/base.py`:
+From `megobin/encoders/base.py`:
 
 ```python
-class Representation(Protocol):
+class Encoder(Protocol):
     def encode(self, features: np.ndarray) -> np.ndarray: ...
 
     @property
@@ -30,14 +30,14 @@ Four surfaces: `encode` (NumPy → NumPy, inference), `embedding_dim` property, 
 
 ## Step 2 — Write the encoder
 
-Create `megobin/representations/dnabert_s.py`:
+Create `megobin/encoders/dnabert_s.py`:
 
 ```python
 """Stub DNABERT-S encoder for MegoBin.
 
 This is scaffolding — the real implementation will load DNABERT-S weights
 from HuggingFace and replace the dummy projection below with the pretrained
-transformer. Until then, this file exists to demonstrate the Representation
+transformer. Until then, this file exists to demonstrate the Encoder
 Protocol integration path.
 """
 
@@ -111,10 +111,10 @@ Three implementation choices worth calling out. **First**, the encoder inherits 
 
 ## Step 3 — Add the config
 
-Create `configs/representation/dnabert_s.yaml`:
+Create `configs/encoder/dnabert_s.yaml`:
 
 ```yaml
-_target_: megobin.representations.dnabert_s.DNABertS
+_target_: megobin.encoders.dnabert_s.DNABertS
 input_dim: 236
 embedding_dim: 768
 dropout: 0.1
@@ -129,8 +129,8 @@ Zero changes to `megobin/pipeline.py` required:
 ```bash
 python megobin/pipeline.py \
   --config-name experiment/hybrid_uncertain_gen \
-  representation=dnabert_s \
-  'representation.input_dim=236' \
+  encoder=dnabert_s \
+  'encoder.input_dim=236' \
   loss=hinge \
   trainer=single_phase \
   pair_sampler=semibin
@@ -141,7 +141,7 @@ Hinge loss, single-phase trainer, and SemiBin pair sampler are chosen because th
 Check the log for:
 
 ```
-[megobin.pipeline] Representation: DNABertS
+[megobin.pipeline] Encoder:        DNABertS
 [megobin.pipeline] Loss:           HingeContrastiveLoss
 [megobin.pipeline] Trainer:        SinglePhaseTrainer
 ```
@@ -150,15 +150,15 @@ If any of those are wrong, your CLI override didn't land — recheck with `--cfg
 
 ## Step 5 — Add a Protocol-compliance test
 
-The pipeline will run even if your encoder has a subtle bug in one method — until that method is called. `test_interfaces.py` catches this early via `isinstance(instance, Representation)`, which works because `Representation` is `@runtime_checkable`. Add a case to `tests/test_interfaces.py`:
+The pipeline will run even if your encoder has a subtle bug in one method — until that method is called. `test_interfaces.py` catches this early via `isinstance(instance, Encoder)`, which works because `Encoder` is `@runtime_checkable`. Add a case to `tests/test_interfaces.py`:
 
 ```python
-def test_dnabert_s_satisfies_representation():
-    from megobin.representations.base import Representation
-    from megobin.representations.dnabert_s import DNABertS
+def test_dnabert_s_satisfies_encoder():
+    from megobin.encoders.base import Encoder
+    from megobin.encoders.dnabert_s import DNABertS
 
     enc = DNABertS(input_dim=236, embedding_dim=768)
-    assert isinstance(enc, Representation)
+    assert isinstance(enc, Encoder)
 ```
 
 Expand the case with the four standard contract assertions (`encode` shape, `embedding_dim`, `parameter_groups`, `training_step` returns a scalar with grad). Pattern-match from `TestSemiBinEncoderTrainingContract` in the same file — see [Testing new components](../07-testing/testing-new-components.md) for the full template.
@@ -176,7 +176,7 @@ If the interface test passes but the end-to-end test fails, your encoder satisfi
 
 ## Step 6 — Pin a reproducible training config (optional but recommended)
 
-Once the encoder works, copy `configs/experiment/training/semibin_cami_toy.yaml` to `configs/experiment/training/dnabert_s_cami_toy.yaml`, swap `/representation: semibin_encoder` for `/representation: dnabert_s`, adjust `representation.input_dim` and `representation.embedding_dim` if needed, and cite your hyperparameter sources in inline comments. Now this encoder has a pinned reproducible run:
+Once the encoder works, copy `configs/experiment/training/semibin_cami_toy.yaml` to `configs/experiment/training/dnabert_s_cami_toy.yaml`, swap `/encoder: semibin_encoder` for `/encoder: dnabert_s`, adjust `encoder.input_dim` and `encoder.embedding_dim` if needed, and cite your hyperparameter sources in inline comments. Now this encoder has a pinned reproducible run:
 
 ```bash
 python megobin/pipeline.py --config-name experiment/training/dnabert_s_cami_toy
@@ -186,11 +186,11 @@ python megobin/pipeline.py --config-name experiment/training/dnabert_s_cami_toy
 
 A complete addition is six things:
 
-1. `megobin/representations/{name}.py` satisfying the Protocol.
-2. `configs/representation/{name}.yaml` with `_target_` and kwargs.
+1. `megobin/encoders/{name}.py` satisfying the Protocol.
+2. `configs/encoder/{name}.yaml` with `_target_` and kwargs.
 3. `tests/test_interfaces.py` case: a `TestXxxTrainingContract` class with the four standard assertions.
 4. Optionally, `tests/test_end_to_end.py` case: a `TestXxxEndToEnd` class (ARI > 0.3, <60s) for integration coverage.
 5. Optionally, `configs/experiment/training/{name}_{dataset}.yaml`.
-6. A paragraph in this guide — specifically [`what-is-megobin.md`](../01-introduction/what-is-megobin.md) under "What ships in the repo today", and the encoder should appear in `configs/representation/` tables in the config reference.
+6. A paragraph in this guide — specifically [`what-is-megobin.md`](../01-introduction/what-is-megobin.md) under "What ships in the repo today", and the encoder should appear in `configs/encoder/` tables in the config reference.
 
 Zero changes to `megobin/pipeline.py`, `megobin/binners/`, `megobin/evaluators/`, or any other existing component. That's the deal.

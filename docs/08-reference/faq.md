@@ -8,7 +8,7 @@ Metagenomic binning — clustering assembled contigs into bins that each corresp
 
 ## How is this different from SemiBin?
 
-MegoBin treats SemiBin as *one configuration* of a general three-slot pipeline (Representation → Binner → Evaluator). You can still run a SemiBin-equivalent — `experiment/training/semibin_cami_toy.yaml` does exactly that — but you can also swap in UncertainGen, DNABERT-S, or a future encoder without touching the binner or evaluator. The architecture is the point.
+MegoBin treats SemiBin as *one configuration* of a general three-slot pipeline (Encoder → Binner → Evaluator). You can still run a SemiBin-equivalent — `experiment/training/semibin_cami_toy.yaml` does exactly that — but you can also swap in UncertainGen, DNABERT-S, or a future encoder without touching the binner or evaluator. The architecture is the point.
 
 See [Design philosophy](../01-introduction/design-philosophy.md) for the full argument.
 
@@ -140,7 +140,7 @@ See [Checkpoints and DVC](../05-experiment-tracking/checkpoints-and-dvc.md).
 
 ## What's the difference between `configs/experiment/` and `configs/experiment/training/`?
 
-`experiment/*.yaml` are "headline" configs — they pin the representation, loss, binner, and sampler but leave hyperparameters at sensible defaults. Good for iteration.
+`experiment/*.yaml` are "headline" configs — they pin the encoder, loss, binner, and sampler but leave hyperparameters at sensible defaults. Good for iteration.
 
 `experiment/training/*.yaml` are "fully pinned" configs — every hyperparameter is fixed, cited to the paper it came from. Good for reproducing a result months later. Always use these for runs that back a hypothesis.
 

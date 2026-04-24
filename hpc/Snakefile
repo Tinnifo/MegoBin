@@ -86,7 +86,7 @@ rule train:
         """
         python src/pipeline.py \
             --config-name experiment/hybrid_uncertain_gen \
-            representation={wildcards.encoder} \
+            encoder={wildcards.encoder} \
             dataset={wildcards.dataset} \
             hydra.run.dir={RESULTS}/{wildcards.dataset}/{wildcards.encoder}
         """
@@ -115,8 +115,8 @@ from hydra.utils import instantiate
 import os
 
 with initialize_config_dir(version_base=None, config_dir=os.path.abspath('configs')):
-    cfg = compose(config_name='experiment/hybrid_uncertain_gen', overrides=['representation={wildcards.encoder}'])
-    model = instantiate(cfg.representation)
+    cfg = compose(config_name='experiment/hybrid_uncertain_gen', overrides=['encoder={wildcards.encoder}'])
+    model = instantiate(cfg.encoder)
 
 state = torch.load('{input.model}', map_location='cpu', weights_only=True)
 model.load_state_dict(state)

@@ -83,7 +83,7 @@ pip install hydra-core omegaconf pyyaml
 pip install -e .
 ```
 
-This gives you `hydra` for config resolution and `megobin` for import. You will not be able to train or evaluate anything, but `python -c "from megobin.representations import UncertainGenRepresentation"` will work, and you can experiment with Hydra composition:
+This gives you `hydra` for config resolution and `megobin` for import. You will not be able to train or evaluate anything, but `python -c "from megobin.encoders.uncertain_gen import UncertainGenEncoder"` will work, and you can experiment with Hydra composition:
 
 ```bash
 python -c "

@@ -2,7 +2,7 @@
 
 UncertainGen's training regime is not a single-optimizer loop. The encoder has two heads — a mean head and a covariance head — and the paper trains them sequentially: mean first for 50 epochs, then the mean is frozen and the covariance is trained for 25 more with a **fresh** Adam optimizer. This tutorial walks through how MegoBin supports that, and how you would write your own N-phase schedule.
 
-If you've only seen `SinglePhaseTrainer`, this chapter is where the `parameter_groups` method on the Representation Protocol finally pays off.
+If you've only seen `SinglePhaseTrainer`, this chapter is where the `parameter_groups` method on the Encoder Protocol finally pays off.
 
 ## Why phased training
 
@@ -67,7 +67,7 @@ The structure is worth dissecting.
 
 `phases` is a list. Each entry is one phase. There's no "two-ness" hardcoded — swap to a three-phase schedule by adding a third entry and nothing else changes.
 
-`params: mean` and `params: cov` are keys into the encoder's `parameter_groups()` dict. `UncertainGenRepresentation.parameter_groups()` returns `{"mean": [...], "cov": [...], "all": [...]}`, and the trainer uses the phase's `params` to pick which group is trainable for that phase; everything else is frozen.
+`params: mean` and `params: cov` are keys into the encoder's `parameter_groups()` dict. `UncertainGenEncoder.parameter_groups()` returns `{"mean": [...], "cov": [...], "all": [...]}`, and the trainer uses the phase's `params` to pick which group is trainable for that phase; everything else is frozen.
 
 `optimizer` uses `_partial_: true` — so the trainer receives a factory, not a bound optimizer. When phase 2 starts, the trainer calls `factory(encoder.parameter_groups()["cov"])` to build a **fresh** Adam bound to the covariance parameters only. This matters because optimizer state (Adam's first and second moments) should not carry over between phases — carrying them would leak Phase-1 dynamics into Phase-2.
 

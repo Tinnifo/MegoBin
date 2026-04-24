@@ -46,7 +46,7 @@ class TestSemiBinEncoderTrainingContract:
 
 Four assertions. Copy this shape for every new component:
 
-- **Representation** — four methods (`encode`, `embedding_dim`, `training_step`, `parameter_groups`).
+- **Encoder** — four methods (`encode`, `embedding_dim`, `training_step`, `parameter_groups`).
 - **ContrastiveLoss** — `__call__` returns scalar tensor, `loss.backward()` populates `.grad` on inputs.
 - **Binner** — `cluster(X)` returns a 1-D integer array of length N, all ≥ 0.
 - **Evaluator** — `score(bins_dir)` returns a DataFrame with `completeness` and `contamination` columns; missing columns raise `KeyError`.
@@ -64,7 +64,7 @@ with patch("subprocess.run", side_effect=fake_run):
 
 Copy this for any future evaluator that shells out.
 
-For `UncertainGenRepresentation`, notice the `parameter_groups` assertion is stricter — it checks for `{"mean", "cov", "all"}` rather than just `"all"`, because the phased trainer depends on those specific group names:
+For `UncertainGenEncoder`, notice the `parameter_groups` assertion is stricter — it checks for `{"mean", "cov", "all"}` rather than just `"all"`, because the phased trainer depends on those specific group names:
 
 ```python
 def test_parameter_groups_has_mean_and_cov(self):

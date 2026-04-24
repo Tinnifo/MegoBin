@@ -4,12 +4,12 @@ MegoBin has seven Protocols. You do not have to memorize them, but you do have t
 
 Every Protocol lives in a `base.py` next to the implementations it contracts. Every Protocol is decorated with `@runtime_checkable` so `isinstance(obj, Protocol)` works — which is what `tests/test_interfaces.py` uses to verify compliance.
 
-## `Representation` — the encoder contract
+## `Encoder` — the encoder contract
 
-File: [`megobin/representations/base.py`](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/megobin/representations/base.py)
+File: [`megobin/encoders/base.py`](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/megobin/encoders/base.py)
 
 ```python
-class Representation(Protocol):
+class Encoder(Protocol):
     def encode(self, features: np.ndarray) -> np.ndarray:
         """(N, input_dim) → (N, embedding_dim)."""
         ...
@@ -28,7 +28,7 @@ class Representation(Protocol):
 
 Four things. `encode` is the inference path used by the binner — NumPy in, NumPy out, no gradients. `embedding_dim` lets downstream components pre-allocate. `training_step` is called by the trainer with one batch produced by the `PairSampler`; the encoder chooses what intermediates to pass to the loss function (for UncertainGen that's `(μ, cov)` concatenations; for SemiBin it's plain embeddings) and returns a scalar loss. `parameter_groups` returns named parameter subsets so a phase-based trainer can freeze and unfreeze heads by name — at minimum `{"all": [...]}`, plus per-head groups for multi-head architectures.
 
-Two implementations ship. `UncertainGenRepresentation` (`megobin/representations/uncertain_gen.py`) has `{"mean": [...], "cov": [...], "all": [...]}`. `SemiBinEncoder` (`megobin/representations/semibin_encoder.py`) has just `{"all": [...]}` — it is single-phase.
+Two implementations ship. `UncertainGenEncoder` (`megobin/encoders/uncertain_gen.py`) has `{"mean": [...], "cov": [...], "all": [...]}`. `SemiBinEncoder` (`megobin/encoders/semibin_encoder.py`) has just `{"all": [...]}` — it is single-phase.
 
 The reason `training_step` lives on the encoder rather than on the trainer is that different encoders want to pass different things to the loss. A naive design ("trainer computes `forward`, passes it to `loss(z_i, z_j, label)`") forces every loss to accept plain embeddings — which breaks UncertainGen, whose Mahalanobis BCE needs the covariance too. Pushing the forward-plus-loss call down into the encoder keeps losses swappable with zero coupling to encoder internals.
 
@@ -134,7 +134,7 @@ A diagram is worth one more read:
 ```mermaid
 flowchart TB
   subgraph "Instantiated by hydra.utils.instantiate"
-    R[Representation]
+    R[Encoder]
     L[ContrastiveLoss]
     B[Binner]
     E[Evaluator]

@@ -10,7 +10,7 @@ For how configs *compose* (defaults, `_target_`, `_partial_`, CLI overrides), se
 configs/
 ├── dataset/          # What data exists, which signals are on disk
 ├── features/         # How to compute feature vectors from that data
-├── representation/   # Encoder architectures
+├── encoder/          # Encoder architectures
 ├── loss/             # Training losses
 ├── binner/           # Clustering algorithms
 ├── pair_sampler/     # Pair sampling strategies for contrastive training
@@ -52,7 +52,7 @@ Key params:
 - `min_length: 1000` — filter short contigs
 - `split_min_length: 2000` — threshold for generating two half-profiles per contig (must-link pair)
 
-## `representation/` — encoders
+## `encoder/` — encoders
 
 | File | Arch | Embedding dim | Params |
 |------|------|---------------|--------|
@@ -169,7 +169,7 @@ Top-level experiment configs that compose all of the above. These are what you p
 
 ### Headline experiments
 
-| File | Representation | Pair sampler | Trainer | Notes |
+| File | Encoder | Pair sampler | Trainer | Notes |
 |------|----------------|--------------|---------|-------|
 | `experiment/hybrid_uncertain_gen.yaml` | UncertainGen | hybrid | two_phase | Primary baseline |
 | `experiment/semibin_pairs_only.yaml` | UncertainGen | semibin | two_phase | SemiBin-style pairs, UncertainGen encoder |
@@ -198,7 +198,7 @@ These get used in `checkpoint_path`, `logger.logdir`, and ablation-sweep directo
 
 ```bash
 # Swap a group
-representation=semibin_encoder
+encoder=semibin_encoder
 
 # Override a single parameter within a group
 binner.k_neighbours=50
@@ -207,7 +207,7 @@ binner.k_neighbours=50
 'binner.eps_values=[0.1,0.2,0.3]'
 
 # Multiple groups
-representation=semibin_encoder loss=hinge trainer=single_phase pair_sampler=semibin
+encoder=semibin_encoder loss=hinge trainer=single_phase pair_sampler=semibin
 
 # Sweep (multirun) — three seeds × three k values
 -m seed=1,2,3 binner.k_neighbours=50,100,200

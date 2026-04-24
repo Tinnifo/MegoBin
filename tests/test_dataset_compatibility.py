@@ -84,7 +84,7 @@ class TestTrainingConfigs:
             cfg = compose(config_name=f"experiment/training/{name}")
         for required in [
             "dataset",
-            "representation",
+            "encoder",
             "loss",
             "binner",
             "features",

@@ -8,7 +8,7 @@ Chapter 1 gave you a one-line architecture diagram. This chapter unpacks it into
 flowchart LR
   A[Dataset config] --> B[Features on disk]
   B --> C[Load features<br/>kmer + abundance]
-  C --> D[Representation<br/>encode / training_step]
+  C --> D[Encoder<br/>encode / training_step]
   D --> E[Embeddings]
   E --> F[Binner<br/>cluster]
   F --> G[Bin labels]
@@ -38,7 +38,7 @@ Every arrow is a method call. Every box is a `_target_` in a YAML file.
 **Instantiate core components (lines 108–116).** Four calls, one per slot:
 
 ```python
-representation = hydra.utils.instantiate(cfg.representation)
+encoder = hydra.utils.instantiate(cfg.encoder)
 loss_fn = hydra.utils.instantiate(cfg.loss)
 binner = hydra.utils.instantiate(cfg.binner)
 evaluator = hydra.utils.instantiate(cfg.evaluator)
@@ -50,11 +50,11 @@ evaluator = hydra.utils.instantiate(cfg.evaluator)
 
 **Logger (lines 149–153).** The Logger is instantiated like any other component. It receives the full resolved config via `log_config(...)` at this point — this is how the Hydra config ends up as a TensorBoard text artifact.
 
-**Checkpoint-or-train branch (lines 156–177).** The pipeline supports two modes. If `resume_from` is set on the CLI, it loads a checkpoint via `load_checkpoint(representation, resume_from)` and skips training. Otherwise, if the config has both a `trainer` and a `pair_sampler`, it instantiates both and calls `trainer.fit(encoder=representation, sampler=sampler, loss_fn=loss_fn)`. If neither is configured, the encoder runs with its initialized weights — useful for baseline experiments where you want to see what a random encoder produces.
+**Checkpoint-or-train branch (lines 156–177).** The pipeline supports two modes. If `resume_from` is set on the CLI, it loads a checkpoint via `load_checkpoint(encoder, resume_from)` and skips training. Otherwise, if the config has both a `trainer` and a `pair_sampler`, it instantiates both and calls `trainer.fit(encoder=encoder, sampler=sampler, loss_fn=loss_fn)`. If neither is configured, the encoder runs with its initialized weights — useful for baseline experiments where you want to see what a random encoder produces.
 
 The sampler instantiation is worth a closer look. `_instantiate_sampler` introspects the sampler class's `__init__` signature and passes only the on-disk arrays it declares as kwargs. That way `pipeline.py` does not need to know whether a given sampler wants `features_whole`, `features_split`, or `cannot_link_pairs` — the sampler class lists them and the pipeline fills them in from `_load_sampler_inputs(dataset_path)`.
 
-**Encode (line 180).** `embeddings = representation.encode(features)`. NumPy in, NumPy out. The trainer has already put the encoder into `eval()` mode; `encode` internally handles the `torch.no_grad()` context and device placement.
+**Encode (line 180).** `embeddings = encoder.encode(features)`. NumPy in, NumPy out. The trainer has already put the encoder into `eval()` mode; `encode` internally handles the `torch.no_grad()` context and device placement.
 
 **Cluster (line 184).** `labels = binner.cluster(embeddings)`. Returns a `(N,)` integer NumPy array. `np.unique(labels)` gives the bin count.
 
@@ -82,6 +82,6 @@ A few deliberate exclusions are worth naming:
 
 **DDP / multi-GPU orchestration.** Current trainers are single-process. UncertainGen's spec calls for DDP with SyncBatchNorm for full-scale runs, but the shipped `TwoPhaseTrainer` runs on one GPU. If you need DDP, the right path is to write a new trainer that satisfies the `Trainer` Protocol.
 
-**Hyperparameter sweeps.** Hydra has a native multirun mode; MegoBin relies on that rather than baking sweep logic into the pipeline. `python megobin/pipeline.py -m seed=1,2,3 representation=uncertain_gen,semibin_encoder` runs six experiments.
+**Hyperparameter sweeps.** Hydra has a native multirun mode; MegoBin relies on that rather than baking sweep logic into the pipeline. `python megobin/pipeline.py -m seed=1,2,3 encoder=uncertain_gen,semibin_encoder` runs six experiments.
 
 The next two chapters zoom in on the two parts of the pipeline that take longest to internalize: the Protocols that everything conforms to, and the Hydra config system that wires them together.

@@ -14,7 +14,7 @@ Fix: check the error trace for the specific key, then either:
 
 Common culprit: running `pipeline.py` without `--config-name experiment/...` — the top-level `config.yaml` is a stub.
 
-### `InstantiationException` with `Error locating target 'megobin.representations.foo.FooEncoder'`
+### `InstantiationException` with `Error locating target 'megobin.encoders.foo.FooEncoder'`
 
 Your `_target_` string points to a class that doesn't exist at that import path.
 

@@ -11,12 +11,12 @@ When biologists sequence an environmental sample (soil, gut, wastewater), they g
 A Python package plus configs plus tests, organized as three swappable slots wired together by a single Hydra-driven entry point.
 
 ```
-Dataset → Features (shared) → Representation → Trainer → Binner → Evaluator
-                                    ↑            ↑
-                              Loss, Sampler   Optimizer, Scheduler, Logger
+Dataset → Features (shared) → Encoder → Trainer → Binner → Evaluator
+                                 ↑         ↑
+                          Loss, Sampler   Optimizer, Scheduler, Logger
 ```
 
-The **Representation** turns features into embeddings. The **Binner** turns embeddings into cluster labels. The **Evaluator** turns cluster labels into completeness/contamination scores via CheckM2. Everything that feeds those three slots — features, losses, pair samplers, trainers, optimizers, schedulers, loggers — is itself a swappable component backed by a Python `Protocol` and composed via YAML.
+The **Encoder** turns features into embeddings. The **Binner** turns embeddings into cluster labels. The **Evaluator** turns cluster labels into completeness/contamination scores via CheckM2. Everything that feeds those three slots — features, losses, pair samplers, trainers, optimizers, schedulers, loggers — is itself a swappable component backed by a Python `Protocol` and composed via YAML.
 
 A single command runs a full experiment:
 
@@ -28,12 +28,12 @@ And a single override swaps any component without editing code:
 
 ```bash
 python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen \
-  representation=semibin_encoder loss=hinge binner=dbscan_ensemble
+  encoder=semibin_encoder loss=hinge binner=dbscan_ensemble
 ```
 
 ## What ships in the repo today
 
-Two encoders live in [megobin/representations/](https://github.com/Tinnifo/Metagenomic-Binning/tree/main/megobin/representations):
+Two encoders live in [megobin/encoders/](https://github.com/Tinnifo/Metagenomic-Binning/tree/main/megobin/encoders):
 
 **UncertainGen** is a dual-head MLP (~526K parameters) that emits both a mean and a diagonal covariance per contig. It is trained with a Mahalanobis BCE loss over a two-phase schedule — train the mean head first for 50 epochs, then freeze it and train the covariance head for 25 more. Embedding dim is 256. This is our primary architecture.
 

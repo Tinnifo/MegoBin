@@ -60,7 +60,7 @@ The pipeline's main entry point handles `resume_from`:
 resume_from = cfg.get("resume_from")
 if resume_from:
     log.info("resume_from set — skipping training, loading %s", resume_from)
-    load_checkpoint(representation, resume_from)
+    load_checkpoint(encoder, resume_from)
 else:
     # ...train normally...
 ```
@@ -74,9 +74,9 @@ python megobin/pipeline.py \
   binner=dbscan_ensemble
 ```
 
-This is how the binner-swap tutorial works — train once, run the same embeddings through Infomap, then DBSCAN, then any other binner you want. The key observation is that `resume_from` doesn't change anything about the representation, features, or evaluator pipeline; it only short-circuits the training phase.
+This is how the binner-swap tutorial works — train once, run the same embeddings through Infomap, then DBSCAN, then any other binner you want. The key observation is that `resume_from` doesn't change anything about the encoder, features, or evaluator pipeline; it only short-circuits the training phase.
 
-**Important caveat:** `load_checkpoint` loads weights in place against an encoder instantiated from the *current* config. If you change `representation.input_dim` or `representation.embedding_dim` between save and load, you will get a cryptic shape-mismatch error from `load_state_dict`. Keep the representation config pinned, or use a pinned experiment YAML (e.g. `experiment/training/uncertain_gen_cami_toy.yaml`) on both the training run and the resume run.
+**Important caveat:** `load_checkpoint` loads weights in place against an encoder instantiated from the *current* config. If you change `encoder.input_dim` or `encoder.embedding_dim` between save and load, you will get a cryptic shape-mismatch error from `load_state_dict`. Keep the encoder config pinned, or use a pinned experiment YAML (e.g. `experiment/training/uncertain_gen_cami_toy.yaml`) on both the training run and the resume run.
 
 ## run_meta.json — the provenance record
 

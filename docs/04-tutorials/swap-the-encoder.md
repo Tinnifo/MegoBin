@@ -32,15 +32,15 @@ SemiBin and UncertainGen disagree on three things: the encoder, the loss, and th
 ```bash
 python megobin/pipeline.py \
   --config-name experiment/training/uncertain_gen_cami_toy \
-  representation=semibin_encoder \
+  encoder=semibin_encoder \
   loss=hinge \
   trainer=single_phase \
   pair_sampler=semibin \
-  'representation.input_dim=236' \
-  'representation.embedding_dim=100' \
-  '~representation.hidden_dim' \
-  '~representation.dropout=null' \
-  +representation.dropout=0.2
+  'encoder.input_dim=236' \
+  'encoder.embedding_dim=100' \
+  '~encoder.hidden_dim' \
+  '~encoder.dropout=null' \
+  +encoder.dropout=0.2
 ```
 
 A few notes on why those extra overrides are there. The UncertainGen YAML has `hidden_dim` and `dropout` fields; SemiBin does not have `hidden_dim` (it's a fixed 3-layer MLP with 512-wide hidden layers) — the `~` syntax deletes a key. SemiBin's embedding dim is 100, not 256.
@@ -84,7 +84,7 @@ diff <(python megobin/pipeline.py --config-name experiment/training/uncertain_ge
      <(python megobin/pipeline.py --config-name experiment/training/semibin_cami_toy --cfg job 2>/dev/null)
 ```
 
-You will see four blocks of differences: the `representation` block (class and its kwargs), the `loss` block (class and margin vs clamp_threshold), the `trainer` block (two_phase vs single_phase plus all the nested phase structure), and the `pair_sampler` block (hybrid vs semibin).
+You will see four blocks of differences: the `encoder` block (class and its kwargs), the `loss` block (class and margin vs clamp_threshold), the `trainer` block (two_phase vs single_phase plus all the nested phase structure), and the `pair_sampler` block (hybrid vs semibin).
 
 That's the whole change surface: four YAML files of configuration, zero lines of Python. `megobin/pipeline.py` did not change. None of the other components changed. The binner, evaluator, logger, feature loader, and FASTA writer are all shared.
 
