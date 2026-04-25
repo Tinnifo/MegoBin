@@ -84,13 +84,3 @@ python megobin/pipeline.py \
 ```
 
 A shorter `eps_values` list means fewer DBSCAN runs (fewer candidate bins). `min_samples` is DBSCAN's core-point threshold; lower values produce more, smaller bins.
-
-## When to care about this tutorial
-
-Most of the time you don't swap binners — UncertainGen's paper uses Infomap, and you keep Infomap. You swap binners in three situations:
-
-**Ablations.** Your paper needs to show the encoder helps across binners, not just one.
-
-**Short-read vs long-read data.** SemiBin2 uses Infomap for short reads and DBSCAN ensemble for long reads — the right binner tracks the read type, not the encoder.
-
-**Debugging the encoder.** If embeddings cluster beautifully under one binner but collapse under another, the embedding geometry is doing something unusual — usually worth understanding before you publish.
