@@ -63,5 +63,3 @@ The `Logger` Protocol is a particularly good example. Trainers call `logger.log_
 ## Why this shape?
 
 The design is optimized for one thing: **making "what if we tried X?" cheap**. X is usually a new encoder, a new loss, a new binner, or an ablation of one of those. In a research codebase, the number of such "what if" experiments you run per week is the rate-limiting variable for progress. Every structural decision above is in service of keeping that rate high.
-
-The cost is that the architecture has more surface area than a monolithic script. There are eight Protocols to understand instead of zero. But each one is short — the `Binner` Protocol is five lines — and Chapter 3 walks through all of them.
