@@ -102,18 +102,4 @@ The Logger Protocol guarantees the following artifacts are written on every run:
 
 If you want to compare two runs, start them under distinguishable run directories — the `TensorBoardLogger` uses the logdir's basename as the run name by default.
 
-## Spotting common failure modes from the output alone
-
-A few patterns to recognize:
-
-**"K-mer profiles not found" warning, pipeline exits cleanly.** This means `data/<dataset>/kmer_profiles.npy` does not exist. Run feature computation before training; see the Snakefile under `hpc/` for the usual command.
-
-**Loss is `nan` from epoch 1.** Almost always a feature-normalization issue or a learning rate catastrophe. Load your `.npy` feature file and sanity-check it — no NaN/Inf, k-mer profiles should sum to ~1.0 per row, abundance should be non-negative. Try `trainer.optimizer.lr=1e-4` (a 10× reduction) as a first diagnostic.
-
-**Loss plateaus immediately, does not decrease.** The end-to-end synthetic test (`tests/test_end_to_end.py`) is the discriminator — an encoder that can't cluster 3 well-separated synthetic genomes is broken. Run `pytest tests/test_end_to_end.py -v -k <your-encoder>`; if it fails, the encoder implementation has a bug.
-
-**Bins: 1.** Infomap's graph collapsed into a single component. Usually means your k-NN graph is over-connected — try a smaller `k_neighbours` in `configs/binner/infomap.yaml` (default is 200; try 50).
-
-**CheckM2 DataFrame is empty / all-zero.** CheckM2 ran but found no marker-gene hits. Often the bin FASTAs are too small (CheckM2 has a minimum contig length it considers). Check `bins/` — each file should contain contigs at least ~1 kb each.
-
 Chapter 8's troubleshooting page expands this list.
