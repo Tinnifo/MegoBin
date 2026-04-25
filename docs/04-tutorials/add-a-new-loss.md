@@ -143,6 +143,3 @@ Not every encoder-loss pairing works. UncertainGen's `training_step` passes `(μ
 
 When you introduce a loss that depends on encoder-specific structure (like UncertainGen's covariance), document the compatibility in the loss file's docstring and add an assertion or warning in `__init__` if practical. The Protocol cannot catch this for you.
 
-## Exercise
-
-Write a "supervised contrastive" loss that uses taxonomy labels from the dataset. `HybridPairSampler` already samples taxonomy-aware pairs; your loss should receive the `label` as a taxonomy ID (not a 0/1 flag) and apply the supervised contrastive loss from [Khosla et al. 2020](https://arxiv.org/abs/2004.11362). What breaks? (Answer: you'll probably need a new sampler Protocol, or a richer label type. Which is interesting — it tells you something about the Pair-Sampler-as-currently-defined.)
