@@ -87,9 +87,3 @@ diff <(python megobin/pipeline.py --config-name experiment/training/uncertain_ge
 You will see four blocks of differences: the `encoder` block (class and its kwargs), the `loss` block (class and margin vs clamp_threshold), the `trainer` block (two_phase vs single_phase plus all the nested phase structure), and the `pair_sampler` block (hybrid vs semibin).
 
 That's the whole change surface: four YAML files of configuration, zero lines of Python. `megobin/pipeline.py` did not change. None of the other components changed. The binner, evaluator, logger, feature loader, and FASTA writer are all shared.
-
-## Exercise
-
-Run the same two encoders but swap the binner too — try `binner=dbscan_ensemble` on one of the runs. Compare the resulting bin counts. You should see significantly more bins from DBSCAN (it's a hard-cluster-per-eps method) than from Infomap (which uses community detection with merging). Which one wins on mean completeness? Which one has more high-quality (>90% complete, <5% contamination) bins?
-
-Write your answer in a notebook under `notebooks/exploratory/` and commit it. Future-you will thank present-you.
