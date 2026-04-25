@@ -1,6 +1,6 @@
 # BioCloud (CMC-AAU)
 
-BioCloud is the biology-hosted cluster at CMC-AAU (Mads Albertsen's group, reachable via Sebastian Dall). It's where data lives, where Snakemake orchestrates the full binning pipeline, and where CheckM2 evaluation runs. It's not our primary GPU cluster — that's DEIS-MCC — but it has enough GPU capacity for short training runs and for debugging.
+BioCloud is the biology-hosted cluster at CMC-AAU. It's where data lives, where Snakemake orchestrates the full binning pipeline, and where CheckM2 evaluation runs. It's not our primary GPU cluster — that's DEIS-MCC — but it has enough GPU capacity for short training runs and for debugging.
 
 Rule of thumb: **BioCloud runs the pipeline; DEIS-MCC trains the encoder**. If you're working on feature engineering, sampler logic, evaluator behaviour, or anything that needs the real CheckM2 database, BioCloud. If you're training for 8+ hours on a GPU, DEIS-MCC.
 
