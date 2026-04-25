@@ -94,7 +94,3 @@ Most of the time you don't swap binners — UncertainGen's paper uses Infomap, a
 **Short-read vs long-read data.** SemiBin2 uses Infomap for short reads and DBSCAN ensemble for long reads — the right binner tracks the read type, not the encoder.
 
 **Debugging the encoder.** If embeddings cluster beautifully under one binner but collapse under another, the embedding geometry is doing something unusual — usually worth understanding before you publish.
-
-## Exercise
-
-Re-run with `binner=infomap` and three different `binner.k_neighbours` values: 50, 100, 200. Plot mean completeness as a function of `k`. Where's the knee? This is your first ablation experiment — and it ran on top of a single trained encoder.
