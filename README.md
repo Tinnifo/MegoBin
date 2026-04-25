@@ -1,6 +1,6 @@
 # MegoBin
 
-MegoBin is a modular research pipeline for **metagenomic binning** — the problem of clustering assembled contigs into bins that each correspond to a single microbial genome. It exists to support rapid iteration on new deep-learning approaches, particularly for recovering low-abundance and microbial-dark-matter organisms that established tools like VAMB and SemiBin2 struggle with. Every part of the pipeline — encoders, losses, pair samplers, trainers, binners, evaluators, loggers — is a swappable slot defined by a Python `Protocol` and composed via [Hydra](https://hydra.cc/) YAML configs, so adding a new method means writing one file and dropping in a config.
+MegoBin is a modular research pipeline for **metagenomic binning.** Every part of the pipeline — encoders, losses, pair samplers, trainers, binners, evaluators, loggers — is a swappable slot defined by a Python `Protocol` and composed via [Hydra](https://hydra.cc/) YAML configs, so adding a new method means writing one file and dropping in a config.
 
 ```
 Dataset → Features (shared) → Encoder → Trainer → Binner → Evaluator
