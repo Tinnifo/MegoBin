@@ -129,7 +129,6 @@ The Logger is the Protocol where the "swap one line of YAML, get a completely di
 
 ## How the pieces compose
 
-A diagram is worth one more read:
 
 ```mermaid
 flowchart TB
