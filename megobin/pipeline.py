@@ -18,6 +18,7 @@ if _PROJECT_ROOT not in sys.path:
 
 import hydra
 import numpy as np
+import pandas as pd
 import torch
 from hydra.utils import get_class
 from omegaconf import DictConfig, OmegaConf
@@ -35,23 +36,58 @@ def seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _load_sampler_inputs(dataset_path: Path) -> dict[str, np.ndarray]:
+def _load_data_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
+    """Read a feature_merge ``data.csv`` (kmer + abundance, indexed by contig).
+
+    Returns ``(features, contig_names)``.
+    """
+    df = pd.read_csv(path, index_col=0)
+    return df.values.astype(np.float32), df.index.to_numpy()
+
+
+def _load_data_split_csv(path: Path) -> np.ndarray:
+    """Read a feature_merge ``data_split.csv`` and return the
+    ``[left_halves; right_halves]`` layout the samplers expect.
+
+    feature_merge writes split rows interleaved as ``[c1_1, c1_2, c2_1, c2_2, ...]``
+    (contig name suffixed ``_1`` / ``_2`` for the two halves). Samplers expect
+    all left halves first, then all right halves.
+    """
+    df = pd.read_csv(path, index_col=0)
+    idx = df.index.astype(str)
+    left = df.loc[idx.str.endswith("_1")].values
+    right = df.loc[idx.str.endswith("_2")].values
+    if left.shape[0] != right.shape[0]:
+        raise ValueError(
+            f"data_split.csv at {path} has mismatched halves: "
+            f"{left.shape[0]} '_1' rows vs {right.shape[0]} '_2' rows"
+        )
+    return np.concatenate([left, right], axis=0).astype(np.float32)
+
+
+def _load_sampler_inputs(
+    dataset_path: Path, features_whole: np.ndarray
+) -> dict[str, np.ndarray]:
     """Load any on-disk arrays that samplers might consume.
 
-    Keyed by the kwarg name samplers expect. Missing files are skipped;
-    sampler instantiation will fail with a clear error if a required
-    input isn't available.
+    ``features_whole`` is reused from the main feature load (data.csv).
+    ``features_split`` comes from data_split.csv. ``cannot_link_pairs``
+    is still a separate ``.npy`` (produced by a different signal source).
+    Missing files are skipped; sampler instantiation will fail with a
+    clear error if a required input isn't available.
     """
-    candidates = {
-        "features_whole": dataset_path / "features_whole.npy",
-        "features_split": dataset_path / "features_split.npy",
-        "cannot_link_pairs": dataset_path / "cannot_link_pairs.npy",
-    }
-    loaded: dict[str, np.ndarray] = {}
-    for name, path in candidates.items():
-        if path.exists():
-            loaded[name] = np.load(path)
-            log.info("Loaded sampler input '%s' from %s", name, path)
+    loaded: dict[str, np.ndarray] = {"features_whole": features_whole}
+
+    split_csv = dataset_path / "data_split.csv"
+    if split_csv.exists():
+        loaded["features_split"] = _load_data_split_csv(split_csv)
+        log.info("Loaded sampler input 'features_split' from %s", split_csv)
+
+    cannot_link = dataset_path / "cannot_link_pairs.npy"
+    if cannot_link.exists():
+        loaded["cannot_link_pairs"] = np.load(cannot_link)
+        log.info("Loaded sampler input 'cannot_link_pairs' from %s", cannot_link)
+
     return loaded
 
 
@@ -95,7 +131,11 @@ def _instantiate_sampler(cfg_sampler: DictConfig, data: dict[str, np.ndarray]):
     return hydra.utils.instantiate(cfg_sampler, **kwargs)
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="experiment/hybrid_uncertain_gen")
+@hydra.main(
+    version_base=None,
+    config_path="../configs",
+    config_name="experiment/hybrid_uncertain_gen",
+)
 def main(cfg: DictConfig) -> None:
     log.info("Config:\n%s", OmegaConf.to_yaml(cfg))
 
@@ -127,27 +167,24 @@ def main(cfg: DictConfig) -> None:
         dataset_name = str(cfg.dataset)
     log.info("Dataset:        %s (%s)", dataset_name, dataset_path)
 
-    kmer_path = dataset_path / "kmer_profiles.npy"
-    abundance_path = dataset_path / "abundance.npy"
-    names_path = dataset_path / "contig_names.npy"
-
-    if not kmer_path.exists():
-        log.warning("K-mer profiles not found at %s — skipping pipeline run.", kmer_path)
+    data_csv = dataset_path / "data.csv"
+    if not data_csv.exists():
+        log.warning("data.csv not found at %s — skipping pipeline run.", data_csv)
         return
 
-    features = np.load(kmer_path)
-    if cfg.get("use_abundance", False) and abundance_path.exists():
-        abundance = np.load(abundance_path)
-        features = np.concatenate([features, abundance], axis=1)
-        log.info("Loaded features: k-mer + abundance → %s", features.shape)
-    else:
-        log.info("Loaded features (k-mer only): %s", features.shape)
-
-    contig_names = np.load(names_path, allow_pickle=True) if names_path.exists() else None
+    features, contig_names = _load_data_csv(data_csv)
+    log.info("Loaded features (kmer + abundance): %s", features.shape)
+    if cfg.get("use_abundance") is not None:
+        log.info(
+            "use_abundance is no longer honored — abundance is baked into data.csv "
+            "via feature_merge."
+        )
 
     # ---- Logger ----
     logger_cfg = cfg.get("logger")
-    experiment_logger = hydra.utils.instantiate(logger_cfg) if logger_cfg is not None else None
+    experiment_logger = (
+        hydra.utils.instantiate(logger_cfg) if logger_cfg is not None else None
+    )
     if experiment_logger is not None:
         log.info("Logger:         %s", type(experiment_logger).__name__)
         experiment_logger.log_config(OmegaConf.to_container(cfg, resolve=True))
@@ -165,9 +202,11 @@ def main(cfg: DictConfig) -> None:
             trainer = hydra.utils.instantiate(trainer_cfg, logger=experiment_logger)
             log.info("Trainer:        %s", type(trainer).__name__)
 
-            sampler_inputs = _load_sampler_inputs(dataset_path)
+            sampler_inputs = _load_sampler_inputs(dataset_path, features)
             sampler = _instantiate_sampler(sampler_cfg, sampler_inputs)
-            log.info("Sampler:        %s (size=%d)", type(sampler).__name__, len(sampler))
+            log.info(
+                "Sampler:        %s (size=%d)", type(sampler).__name__, len(sampler)
+            )
 
             trainer.fit(encoder=encoder, sampler=sampler, loss_fn=loss_fn)
         else:
@@ -192,7 +231,7 @@ def main(cfg: DictConfig) -> None:
     if contig_names is not None:
         fasta_path = dataset_path / "contigs.fasta"
         if fasta_path.exists():
-            from megobin.features.kmer_profiles import read_fasta
+            from megobin.features.generate_kmers import read_fasta
 
             all_names, all_seqs = read_fasta(fasta_path)
             name_to_seq = dict(zip(all_names, all_seqs))

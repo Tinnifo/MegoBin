@@ -69,3 +69,8 @@ class SemiBinEncoder(nn.Module):
     @property
     def embedding_dim(self) -> int:
         return self._embedding_dim
+
+
+
+
+

@@ -5,7 +5,7 @@
 from itertools import product
 from collections import OrderedDict
 
-from .fasta import fasta_iter
+from megobin.utils.fasta import fasta_iter
 
 
 def generate_feature_mapping(kmer_len):

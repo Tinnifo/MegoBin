@@ -4,7 +4,7 @@
 
 import os
 import subprocess
-from .atomicwrite import atomic_write
+from megobin.utils.atomicwrite import atomic_write
 
 
 def calculate_coverage(
