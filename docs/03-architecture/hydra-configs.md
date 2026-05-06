@@ -1,35 +1,29 @@
 # Hydra configs
 
-MegoBin uses [Hydra](https://hydra.cc/) for all configuration. If you have not used Hydra before, this chapter is enough to be productive: you will understand how `configs/experiment/hybrid_uncertain_gen.yaml` turns into a runnable pipeline, how to override any field from the CLI, and what the `_target_` and `_partial_` keys do.
-
-## The config tree
-
-The full `configs/` tree is about 20 files. Every subfolder maps to one slot in the pipeline:
+## Tree
 
 ```
 configs/
-├── dataset/                 CAMI_medium.yaml, CAMI_toy.yaml
-├── features/                canonical_kmer.yaml, canonical_kmer_abundance.yaml
-├── encoder/                 uncertain_gen.yaml, semibin_encoder.yaml
-├── loss/                    hinge.yaml, mahalanobis_bce.yaml
-├── binner/                  infomap.yaml, dbscan_ensemble.yaml
-├── evaluator/               checkm2.yaml
-├── pair_sampler/            hybrid.yaml, semibin.yaml, uncertain_gen.yaml
-├── trainer/                 single_phase.yaml, two_phase.yaml
-├── optimizer/               adam.yaml, adamw.yaml, sgd.yaml
-├── scheduler/               constant.yaml, cosine.yaml, step_lr.yaml
-├── logger/                  tensorboard.yaml, none.yaml
-└── experiment/              hybrid_uncertain_gen.yaml, random_pairs_only.yaml,
-                             semibin_pairs_only.yaml, training/
+├── dataset/         CAMI_medium, CAMI_toy
+├── features/        canonical_kmer, canonical_kmer_abundance
+├── encoder/         uncertain_gen, semibin_encoder
+├── loss/            hinge, mahalanobis_bce
+├── binner/          infomap, dbscan_ensemble
+├── evaluator/       checkm2
+├── pair_sampler/    hybrid, semibin, uncertain_gen
+├── trainer/         single_phase, two_phase
+├── optimizer/       adam, adamw, sgd
+├── scheduler/       constant, cosine, step_lr
+├── logger/          tensorboard, none
+└── experiment/      composed runs (+ training/ for pinned runs)
 ```
 
-Each leaf file specifies exactly one instantiable object: a dataset descriptor, an encoder, a loss, a sampler, and so on. The top-level files in `configs/experiment/` compose them.
+Each subdir is a Hydra group. CLI: `<group>=<config_name>`.
 
-## A single YAML file — what's inside
-
-The simplest shape is a slot config. `configs/encoder/uncertain_gen.yaml` is four lines:
+## A slot config
 
 ```yaml
+# configs/encoder/uncertain_gen.yaml
 _target_: megobin.encoders.uncertain_gen.UncertainGenEncoder
 input_dim: 256
 hidden_dim: 512
@@ -37,20 +31,14 @@ embedding_dim: 256
 dropout: 0.2
 ```
 
-`_target_` is the fully-qualified Python class name Hydra will import and instantiate. Everything else is keyword arguments passed to that class's `__init__`. When `pipeline.py` calls `hydra.utils.instantiate(cfg.encoder)`, it runs:
+`hydra.utils.instantiate(cfg.encoder)` becomes `UncertainGenEncoder(**kwargs)`.
 
-```python
-from megobin.encoders.uncertain_gen import UncertainGenEncoder
-UncertainGenEncoder(input_dim=256, hidden_dim=512, embedding_dim=256, dropout=0.2)
-```
+## `_partial_: true`
 
-That's all there is to component instantiation.
-
-## `_partial_: true` — factories, not instances
-
-Optimizers and schedulers use a variant. `configs/optimizer/adam.yaml`:
+Optimizers and schedulers return a **factory**, not an instance:
 
 ```yaml
+# configs/optimizer/adam.yaml
 _target_: torch.optim.Adam
 _partial_: true
 lr: 1e-3
@@ -58,11 +46,9 @@ betas: [0.9, 0.999]
 weight_decay: 0.0
 ```
 
-With `_partial_: true`, `hydra.utils.instantiate` returns a **factory** — a `functools.partial(torch.optim.Adam, lr=1e-3, ...)` — not a bound optimizer. The trainer decides when (and for which parameters) to call the factory. That's what lets the two-phase trainer instantiate a fresh Adam for each phase, bound to a different `parameter_group`, without the config knowing which parameters will end up in each phase.
+Trainer calls `factory(parameter_group)` when ready. Lets two-phase rebuild Adam per phase.
 
 ## Composing an experiment
-
-An experiment config is a single YAML that imports the leaf configs and stitches them together. `configs/experiment/hybrid_uncertain_gen.yaml`:
 
 ```yaml
 # @package _global_
@@ -87,82 +73,46 @@ encoder:
   embedding_dim: 256
 ```
 
-Three things are happening. First, the `# @package _global_` directive tells Hydra "merge my keys into the top-level config" rather than nesting under an `experiment:` key. Second, the `defaults:` list pulls in one file from each slot folder — Hydra resolves the paths relative to `configs/` and merges them into a single DictConfig. Third, the final block overrides `seed`, `use_abundance`, and two fields of the `encoder` section. The `encoder.input_dim` override in particular says "start from `configs/encoder/uncertain_gen.yaml`, then replace `input_dim: 256` with `input_dim: 236`" — that 236 is 136 canonical k-mers + 2 × 50 BAM coverage features.
+`# @package _global_` flattens keys to top level.
 
 ## CLI overrides
 
-Hydra's dot-notation overrides let you change any value from the command line. Four common patterns:
-
-**Swap a component wholesale.** Replace `encoder: uncertain_gen` with `encoder: semibin_encoder`:
-
 ```bash
-python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen encoder=semibin_encoder
+# Swap component
+encoder=semibin_encoder
+
+# Field inside a component
+encoder.dropout=0.3
+
+# Add a missing key
++debug=true
+
+# Sweep
+-m seed=1,2,3
 ```
 
-**Change a field inside a component.**
+## Two flavours
+
+- `configs/experiment/*.yaml` — ad-hoc; override-friendly.
+- `configs/experiment/training/*.yaml` — pinned, reproducible. Naming: `{encoder}_{dataset}.yaml`.
+
+## Debug a config
 
 ```bash
-python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen encoder.dropout=0.3
+python megobin/pipeline.py --config-name <name> --cfg job
 ```
 
-**Add a new key.** Use `+` to add a key that doesn't exist in the base config:
-
-```bash
-python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen +debug=true
-```
-
-**Sweep (multirun mode).** `-m` or `--multirun`:
-
-```bash
-python megobin/pipeline.py -m --config-name experiment/hybrid_uncertain_gen seed=1,2,3
-```
-
-That last one runs three experiments with seeds 1, 2, 3, each under its own `multirun/<date>/<time>/<N>/` subdirectory.
-
-## Two flavours of experiment config
-
-The project distinguishes two styles of experiment:
-
-**Ad-hoc exploration** lives in `configs/experiment/*.yaml` — `hybrid_uncertain_gen.yaml`, `random_pairs_only.yaml`, `semibin_pairs_only.yaml`. These inherit most hyperparameters from their component defaults and are fine to override on the CLI. Use them while you're still figuring out the experiment.
-
-**Pinned reproducible runs** live in `configs/experiment/training/` — `uncertain_gen_cami_toy.yaml`, `semibin_cami_toy.yaml`. These specify every slot, cite their hyperparameter sources in inline comments, and are the canonical "re-run this exactly" configs. Convention: one file per (encoder, dataset) pair. Use them when you're ready to publish a result.
-
-The naming rule is simple: `{encoder}_{dataset}.yaml`. To add a new one — say SemiBin on CAMI_medium — copy `semibin_cami_toy.yaml`, swap `/dataset: CAMI_toy` for `/dataset: CAMI_medium`, and adjust `encoder.input_dim` to match the new BAM count.
-
-## The resolved config, in one command
-
-Hydra's `--cfg job` mode is the best single debugging tool. It prints the fully-resolved config without running the pipeline:
-
-```bash
-python megobin/pipeline.py \
-  --config-name experiment/hybrid_uncertain_gen \
-  encoder.dropout=0.5 \
-  --cfg job
-```
-
-Use this any time the pipeline is doing something surprising — nine times out of ten a mis-override is visible in the printed config before anything else.
+Prints resolved config without running. Best single debugging tool.
 
 ## Interpolations
 
-Values can reference each other. `configs/pair_sampler/hybrid.yaml`:
+- `${seed}` — top-level field
+- `${hydra:runtime.output_dir}` — per-run dir
 
-```yaml
-_target_: megobin.data.hybrid_sampler.HybridPairSampler
-neg_per_pos: 1000
-taxonomy_fraction: 0.5
-seed: ${seed}
-```
+## Failure modes
 
-`${seed}` pulls from the top-level `seed` field in the composed config. `${hydra:runtime.output_dir}` (used in `configs/trainer/*.yaml` for `checkpoint_path` and in `configs/logger/tensorboard.yaml` for `logdir`) resolves to Hydra's auto-generated per-run output directory.
-
-## A mental model for debugging configs
-
-Three failure modes cover most of what you'll hit:
-
-**"Field not found" errors** mean you're using `.` syntax for a key that doesn't exist in the base. Add `+` before the override, or look at `--cfg job` to see the real field name.
-
-**"Cannot instantiate" errors** mean `_target_` points at a class that either doesn't exist or has a different `__init__` signature than the YAML supplies. Grep the target FQN and check the constructor.
-
-**Silent wrong behavior** is the worst one — the config parses but does the wrong thing. Run `--cfg job` and diff against a known-good config. If your override changed something unexpected because of merge semantics, this is where you'll spot it.
-
-Chapter 4's tutorials use this machinery everywhere. If the above feels shaky, try them first — swapping an encoder is mostly a CLI override, and you'll develop intuition for Hydra by doing.
+| Symptom | Cause |
+|---------|-------|
+| "Field not found" | `.` syntax for missing key. Use `+`, or check `--cfg job`. |
+| "Cannot instantiate" | `_target_` wrong, or kwargs don't match `__init__`. |
+| Silent wrong behavior | `--cfg job` and diff against known-good. |

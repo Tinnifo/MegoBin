@@ -49,6 +49,7 @@ Thumbs.db
 
 # Env
 .env
+.venv/
 
 CLAUDE-codebase.md
 CLAUDE.md

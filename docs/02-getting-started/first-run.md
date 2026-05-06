@@ -1,34 +1,32 @@
 # Your first run
 
-This chapter takes about ten minutes. At the end of it you will have trained the UncertainGen encoder on the CAMI toy dataset, clustered the embeddings with Infomap, evaluated the bins with CheckM2, and looked at loss curves in TensorBoard. Nothing in this chapter is stubbed out — every command runs real code against real data.
+Train UncertainGen on CAMI toy, cluster with Infomap, evaluate with CheckM2. ~10 min on laptop, 2–3 min on a T4.
 
 ## Goal
 
-Run `experiment/training/uncertain_gen_cami_toy` end-to-end and verify that:
+Run `experiment/training/uncertain_gen_cami_toy` end-to-end. Verify:
 
-1. The pipeline reports loaded features of shape `(N, 236)`.
-2. The two-phase trainer prints two phases — `mean` (50 epochs) then `cov` (25 epochs) — with training loss trending down.
-3. The binner reports some number of bins.
-4. CheckM2 writes a completeness/contamination DataFrame to the log.
-5. TensorBoard shows a `train/loss` curve under `outputs/<date>/<time>/tb/`.
+1. Features loaded with shape `(N, 236)`.
+2. Two phases printed: `mean` (50 epochs) → `cov` (25 epochs).
+3. Bin count is reasonable (tens to hundreds).
+4. CheckM2 DataFrame in the log.
+5. `train/loss` curve in TensorBoard.
 
 ## Prerequisites
 
-You have followed the install steps and `mamba activate megobin` (or equivalent) is active. `pytest tests/test_interfaces.py` passes. You have the CAMI toy dataset at `data/CAMI_toy/` containing `kmer_profiles.npy`, `abundance.npy`, and `contigs.fasta` at minimum. If you do not — ask Sebastian or pull it from BioCloud `/projects/microbial-dark-matter/metagenomic-binning/data/CAMI_toy/`.
+- Install done, `mamba activate megobin`.
+- `pytest tests/test_interfaces.py` passes.
+- `data/CAMI_toy/` has `kmer_profiles.npy`, `abundance.npy`, `contigs.fasta`.
 
-## Step 1 — Smoke-test on synthetic data
-
-Before running on CAMI toy, confirm the pipeline itself works on synthetic data. The end-to-end test constructs a small synthetic dataset on the fly and walks through the full pipeline:
+## Step 1 — Smoke test
 
 ```bash
 pytest tests/test_end_to_end.py -v
 ```
 
-This should complete in under a minute. If it fails, your install is broken — stop here and fix the install before continuing. Common causes: missing `hydra-core`, missing `checkm2` in the environment, a Python version mismatch (the repo targets 3.10).
+Should pass in <1 min. If it fails, fix the install before continuing.
 
 ## Step 2 — Dry-run the config
-
-Hydra's `--cfg job` mode prints the fully-resolved config without running anything. This is the single most useful command for diagnosing config issues:
 
 ```bash
 python megobin/pipeline.py \
@@ -36,91 +34,52 @@ python megobin/pipeline.py \
   --cfg job
 ```
 
-You should see the composed YAML printed to stdout. Verify the `dataset.path`, `features.k`, `encoder._target_`, and `trainer.phases` look right. If any of these are missing or surprising, Hydra's composition is misbehaving — usually a typo in a `defaults:` entry.
+Prints the resolved config. Best diagnostic for Hydra issues.
 
-## Step 3 — Launch the real run
+## Step 3 — Run
 
 ```bash
 python megobin/pipeline.py --config-name experiment/training/uncertain_gen_cami_toy
 ```
 
-On a recent MacBook Pro this takes ten to fifteen minutes. On a T4 GPU it finishes in two to three. The console output walks through the pipeline in the same order as [`megobin/pipeline.py`](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/megobin/pipeline.py):
+Expect:
 
 ```
-[megobin.pipeline] Config:
-  seed: 42
-  dataset: {name: CAMI_toy, path: data/CAMI_toy, signals: [kmers, abundance, taxonomy], num_bams: 50}
-  ...
 [megobin.pipeline] Encoder:        UncertainGenEncoder
-[megobin.pipeline] Loss:           MahalanobisBCELoss
-[megobin.pipeline] Binner:         InfomapBinner
-[megobin.pipeline] Evaluator:      CheckM2Evaluator
-[megobin.pipeline] Dataset:        CAMI_toy (data/CAMI_toy)
 [megobin.pipeline] Loaded features: k-mer + abundance → (N, 236)
-[megobin.pipeline] Logger:         TensorBoardLogger
-[megobin.pipeline] Trainer:        TwoPhaseTrainer
-[megobin.pipeline] Sampler:        HybridPairSampler (size=...)
 [megobin.trainers.two_phase] Phase 1/2 (params=mean, epochs=50) ...
 [megobin.trainers.two_phase] Phase 2/2 (params=cov, epochs=25)  ...
-[megobin.pipeline] Embeddings: (N, 256)
 [megobin.pipeline] Bins: K
-[megobin.pipeline] Wrote K bin FASTA files to bins
-[megobin.pipeline] CheckM2 results:
-                     completeness  contamination
-bin_0000.fasta          92.1            1.4
-bin_0001.fasta          78.4            3.8
-...
+[megobin.pipeline] CheckM2 results: ...
 ```
 
-The key checks:
+Checks:
+- `(N, 236)` — 136 k-mers + 2×50 BAMs. `(N, 136)` means abundance failed to load.
+- Both phases run. Only Phase 1 = trainer crashed; check `pipeline.log`.
+- `Bins: K` — 1 bin = collapsed; thousands = shattered.
+- CheckM2 missing → pipeline logs `CheckM2 not available — skipping evaluation.` and exits cleanly.
 
-- `Loaded features: ... → (N, 236)` — 136 canonical k-mers + 2 × 50 BAMs (mean and variance per BAM). If this says `(N, 136)`, abundance failed to load; check `data/CAMI_toy/abundance.npy` exists.
-- `Phase 1/2` and `Phase 2/2` both print. If you only see Phase 1, the trainer crashed mid-training — inspect `outputs/<date>/<time>/pipeline.log` for the traceback.
-- `Bins: K` where K is tens to hundreds. A single bin means the clustering collapsed; thousands means it shattered. Either case means the encoder did not produce useful embeddings — that's useful information, but not what we want on a working day.
-- The CheckM2 block is present. If CheckM2 is not installed the pipeline logs `CheckM2 not available — skipping evaluation.` and exits cleanly; the evaluation step is best-effort.
-
-## Step 4 — Look at the run directory
-
-Hydra creates a fresh output directory per run. After the run, inspect it:
+## Step 4 — Inspect output
 
 ```bash
 RUN_DIR=$(ls -dt outputs/*/* | head -1)
 ls "$RUN_DIR"
 ```
 
-You should see:
-
 ```
-.hydra/                Resolved config, Hydra metadata
-pipeline.log          Full stdout+stderr from the run
-encoder.pt            Saved trainer checkpoint
-bins/                 Per-bin FASTA files
-tb/                   TensorBoard event files
+.hydra/        Resolved config + Hydra metadata
+pipeline.log   stdout+stderr
+encoder.pt     Trainer checkpoint
+bins/          Per-bin FASTA files
+tb/            TensorBoard event files
 ```
 
-Open the log:
-
-```bash
-less "$RUN_DIR/pipeline.log"
-```
-
-## Step 5 — Launch TensorBoard
+## Step 5 — TensorBoard
 
 ```bash
 tensorboard --logdir outputs/
 ```
 
-Navigate to [localhost:6006](http://localhost:6006). You should see:
+Open [localhost:6006](http://localhost:6006). You should see `train/loss`, `train/epoch_loss`, `train/lr`, `phase1/...`, `phase2/...`, `eval/mean_completeness`, `eval/mean_contamination`, `eval/n_bins`, plus the resolved config under Text.
 
-- **Scalars** → `train/loss`, `train/epoch_loss`, `train/lr`, plus `phase1/...` and `phase2/...` sub-scopes.
-- **Scalars** → `eval/mean_completeness`, `eval/mean_contamination`, `eval/n_bins`.
-- **Histograms** → per-column histograms over CheckM2 scores.
-- **Text** → the full resolved Hydra config.
-
-The `outputs/` directory is the canonical logdir. If you run more experiments later, pointing TensorBoard at `outputs/` (not a specific run) lets you overlay curves across runs.
-
-## What you just did
-
-You composed an experiment from eight YAML files (dataset, features, encoder, loss, binner, evaluator, pair_sampler, trainer, logger), Hydra resolved them into a single config, `pipeline.py` instantiated every component, the trainer ran two phases of training, Infomap clustered the resulting embeddings, and CheckM2 scored the bins. Every step was a call through a Protocol — `encoder.training_step(...)`, `binner.cluster(...)`, `evaluator.score(...)` — and no two components imported from each other.
-
-The next chapter explains where the output files live and what each one means.
+Point at `outputs/` (not a single run) to overlay multiple runs.
