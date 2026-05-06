@@ -1,21 +1,21 @@
 """Snakemake pipeline for metagenomic binning.
 
-Run on BioCloud with the pre-installed profile:
-    snakemake --profile biocloud -s hpc/Snakefile --configfile hpc/config.yaml
+Run with the cluster profile of your choice:
+    snakemake -s hpc/Snakefile --configfile hpc/config.yaml
 
 Wildcards:
-    dataset     — e.g. CAMI_medium, CAMI_high
-    encoder     — uncertain_gen, semibin_encoder
-    binner      — infomap, dbscan_ensemble
+    dataset     — name of a config under ``configs/dataset/``
+    encoder     — uncertain_gen
+    binner      — dbscan_ensemble
 """
 
 # ---------------------------------------------------------------------------
 # Config defaults (override via --configfile or --config key=value)
 # ---------------------------------------------------------------------------
 
-DATASETS = config.get("datasets", ["CAMI_medium"])
+DATASETS = config.get("datasets", ["example"])
 ENCODERS = config.get("encoders", ["uncertain_gen"])
-BINNERS  = config.get("binners",  ["infomap"])
+BINNERS  = config.get("binners",  ["dbscan_ensemble"])
 DATA_DIR = config.get("data_dir", "data")
 RESULTS  = config.get("results_dir", "results")
 THREADS  = config.get("threads", 8)
@@ -85,7 +85,7 @@ rule train:
     shell:
         """
         python src/pipeline.py \
-            --config-name experiment/hybrid_uncertain_gen \
+            --config-name experiment/uncertain_gen_dbscan \
             encoder={wildcards.encoder} \
             dataset={wildcards.dataset} \
             hydra.run.dir={RESULTS}/{wildcards.dataset}/{wildcards.encoder}
@@ -115,7 +115,7 @@ from hydra.utils import instantiate
 import os
 
 with initialize_config_dir(version_base=None, config_dir=os.path.abspath('configs')):
-    cfg = compose(config_name='experiment/hybrid_uncertain_gen', overrides=['encoder={wildcards.encoder}'])
+    cfg = compose(config_name='experiment/uncertain_gen_dbscan', overrides=['encoder={wildcards.encoder}'])
     model = instantiate(cfg.encoder)
 
 state = torch.load('{input.model}', map_location='cpu', weights_only=True)
@@ -150,7 +150,7 @@ from hydra.utils import instantiate
 import os
 
 with initialize_config_dir(version_base=None, config_dir=os.path.abspath('configs')):
-    cfg = compose(config_name='experiment/hybrid_uncertain_gen', overrides=['binner={wildcards.binner}'])
+    cfg = compose(config_name='experiment/uncertain_gen_dbscan', overrides=['binner={wildcards.binner}'])
     binner = instantiate(cfg.binner)
 
 embeddings = np.load('{input.embeddings}')

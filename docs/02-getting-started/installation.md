@@ -1,10 +1,8 @@
 # Installation
 
-Three environments: laptop (edits + smoke tests), BioCloud (pipeline + CheckM2), DEIS-MCC (GPU training).
-
 ## Prerequisites
 
-`git`, `mamba` (preferred over `conda`), SSH keys for any cluster you'll use. ~15 GB for the env, plus dataset (CAMI_toy <5 GB, CAMI_medium ~40 GB).
+`git`, `mamba` (preferred over `conda`). ~15 GB for the env plus disk for whichever dataset you point ``configs/dataset/example.yaml`` at.
 
 ## Clone
 
@@ -39,14 +37,8 @@ singularity build megobin.sif environment.def
 Run:
 
 ```bash
-# DEIS-MCC
 singularity exec --nv megobin.sif python megobin/pipeline.py ...
-
-# BioCloud
-apptainer run --nvccli megobin.sif python megobin/pipeline.py ...
 ```
-
-DEIS-MCC gotcha: `export SINGULARITY_TMPDIR=/scratch/$(whoami)` before building.
 
 ## Option C — Read-only
 
@@ -57,9 +49,25 @@ pip install -e .
 
 Enough to import `megobin` and compose configs. No training.
 
-## Cluster notes
+## External tools
 
-- **BioCloud** — `bash -l` shebang in SLURM scripts; profile at `--profile biocloud`.
-- **DEIS-MCC** — request GPUs via `--gres=gpu:N --partition=turing` (6× T4) or `--partition=ada` (2× L4). `/scratch` (~60 GB) is non-persistent — copy outputs before job ends.
+The pipeline core (encoder, training, embedding) runs from the conda env alone. The marker-aware DBSCAN binner ([megobin/binners/dbscan_ensemble.py](../../megobin/binners/dbscan_ensemble.py)) calls out to two external tools:
 
-See Chapter 6 for full HPC setup.
+| Tool | Used by | Install |
+|------|---------|---------|
+| `hmmsearch` (HMMER ≥3) | `_call_markers_from_fasta` | `brew install hmmer` (macOS), `mamba install -c bioconda hmmer` |
+| `prodigal` (optional, only if `orf_finder=prodigal`) | `run_prodigal` | `mamba install -c bioconda prodigal` |
+| `FragGeneScan` (optional, only if `orf_finder=fraggenescan`) | `run_fraggenescan` | `mamba install -c bioconda fraggenescan` |
+
+The default `orf_finder=fast-naive` is pure-Python ([megobin/utils/naive_orffinder.py](../../megobin/utils/naive_orffinder.py)) and needs no external binary.
+
+The marker HMM database (107 single-copy marker genes) lives at [megobin/utils/marker.hmm](../../megobin/utils/marker.hmm) — fetched verbatim from [SemiBin](https://github.com/BigDataBiology/SemiBin/blob/main/SemiBin/marker.hmm). If you cloned without it:
+
+```bash
+curl -sL https://raw.githubusercontent.com/BigDataBiology/SemiBin/main/SemiBin/marker.hmm \
+  -o megobin/utils/marker.hmm
+```
+
+To skip the marker pathway entirely (e.g. on a machine without HMMER), pass `+binner.contig_to_marker={}` on the CLI — DBSCAN then runs without marker-F1 bin selection and every contig becomes its own singleton, so this is for plumbing tests, not real runs.
+
+`CheckM2` is also optional — `pipeline.py` skips evaluation with a warning if its CLI isn't on PATH.

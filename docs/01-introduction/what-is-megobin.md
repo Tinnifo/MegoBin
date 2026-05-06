@@ -15,14 +15,14 @@ Dataset → Features (shared) → Encoder → Trainer → Binner → Evaluator
 Run an experiment:
 
 ```bash
-python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen
+python megobin/pipeline.py --config-name experiment/uncertain_gen_dbscan
 ```
 
 Swap a component:
 
 ```bash
-python megobin/pipeline.py --config-name experiment/hybrid_uncertain_gen \
-  encoder=semibin_encoder loss=hinge binner=dbscan_ensemble
+python megobin/pipeline.py --config-name experiment/uncertain_gen_dbscan \
+  binner=dbscan_ensemble filter=uncertainty
 ```
 
 Adding a new encoder, loss, or binner = **one Python file, one YAML, one test**.

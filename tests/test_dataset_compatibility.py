@@ -1,7 +1,7 @@
 """Dataset capability descriptor + fail-fast signal check.
 
 Covers:
-- Every shipped dataset config parses and has the expected keys.
+- The placeholder ``example`` dataset config parses and has the expected keys.
 - Every feature config declares `required_signals`.
 - All shipped experiment configs pass the compatibility check.
 - A deliberately mismatched (dataset, features) pair raises with a clear error.
@@ -20,7 +20,7 @@ CONFIG_DIR = str((Path(__file__).parent.parent / "configs").resolve())
 
 
 class TestDatasetConfigs:
-    @pytest.mark.parametrize("name", ["CAMI_toy", "CAMI_medium"])
+    @pytest.mark.parametrize("name", ["example"])
     def test_dataset_has_required_keys(self, name):
         with initialize_config_dir(version_base=None, config_dir=CONFIG_DIR):
             cfg = compose(config_name=f"dataset/{name}")
@@ -45,56 +45,11 @@ class TestFeatureConfigs:
 
 
 class TestExperimentCompatibility:
-    @pytest.mark.parametrize(
-        "name",
-        ["random_pairs_only", "semibin_pairs_only", "hybrid_uncertain_gen"],
-    )
+    @pytest.mark.parametrize("name", ["uncertain_gen_dbscan"])
     def test_experiment_passes_check(self, name):
         with initialize_config_dir(version_base=None, config_dir=CONFIG_DIR):
             cfg = compose(config_name=f"experiment/{name}")
         _check_signal_compatibility(cfg)
-
-
-class TestTrainingConfigs:
-    """Per-encoder-per-dataset training configs under experiment/training/."""
-
-    @pytest.mark.parametrize(
-        "name",
-        [
-            "uncertain_gen_cami_toy",
-            "semibin_cami_toy",
-        ],
-    )
-    def test_training_config_passes_check(self, name):
-        with initialize_config_dir(version_base=None, config_dir=CONFIG_DIR):
-            cfg = compose(config_name=f"experiment/training/{name}")
-        _check_signal_compatibility(cfg)
-
-    @pytest.mark.parametrize(
-        "name",
-        [
-            "uncertain_gen_cami_toy",
-            "semibin_cami_toy",
-        ],
-    )
-    def test_training_config_fully_specified(self, name):
-        """Every training config must bind all slots so a run is
-        reproducible from the config name alone."""
-        with initialize_config_dir(version_base=None, config_dir=CONFIG_DIR):
-            cfg = compose(config_name=f"experiment/training/{name}")
-        for required in [
-            "dataset",
-            "encoder",
-            "loss",
-            "binner",
-            "features",
-            "evaluator",
-            "pair_sampler",
-            "trainer",
-            "logger",
-            "seed",
-        ]:
-            assert required in cfg, f"{name} missing required slot '{required}'"
 
 
 class TestCompatibilityFailures:

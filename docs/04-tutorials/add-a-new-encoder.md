@@ -66,7 +66,7 @@ class DNABertS(nn.Module):
 
 ```yaml
 _target_: megobin.encoders.dnabert_s.DNABertS
-input_dim: 236
+input_dim: 136
 embedding_dim: 768
 dropout: 0.1
 ```
@@ -75,11 +75,11 @@ dropout: 0.1
 
 ```bash
 python megobin/pipeline.py \
-  --config-name experiment/hybrid_uncertain_gen \
+  --config-name experiment/uncertain_gen_dbscan \
   encoder=dnabert_s \
   loss=hinge \
   trainer=single_phase \
-  pair_sampler=semibin
+  pair_sampler=uncertain_gen
 ```
 
 (Single-head encoder → single-phase trainer + hinge loss.)
@@ -93,11 +93,11 @@ def test_dnabert_s_satisfies_encoder():
     from megobin.encoders.base import Encoder
     from megobin.encoders.dnabert_s import DNABertS
 
-    enc = DNABertS(input_dim=236, embedding_dim=768)
+    enc = DNABertS(input_dim=136, embedding_dim=768)
     assert isinstance(enc, Encoder)
 ```
 
-Pattern-match `TestSemiBinEncoderTrainingContract` for the four standard assertions. For integration coverage, add a `TestDNABertSEndToEnd` to `tests/test_end_to_end.py` (ARI > 0.3, <60s wall time).
+Pattern-match `TestUncertainGenTrainingContract` for the four standard assertions.
 
 ```bash
 pytest tests/test_interfaces.py -v -k DNABertS
@@ -105,7 +105,7 @@ pytest tests/test_interfaces.py -v -k DNABertS
 
 ## Step 6 — Pin a reproducible config (optional)
 
-Copy `configs/experiment/training/semibin_cami_toy.yaml` → `dnabert_s_cami_toy.yaml`, swap `/encoder` and dims.
+Copy `configs/experiment/uncertain_gen_dbscan.yaml` → `dnabert_s_dbscan.yaml`, swap `/encoder` and dims.
 
 ## Checklist
 

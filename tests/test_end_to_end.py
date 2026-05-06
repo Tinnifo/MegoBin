@@ -1,38 +1,18 @@
-"""End-to-end integration test.
+"""End-to-end integration test (checkpoint resume).
 
-Protects against regression across the whole pipeline. Uses synthetic
-features built to separate into known clusters so we can assert on ARI
-without needing real assemblies / BAM files / CheckM2.
-
-Two passes:
-- UncertainGen + TwoPhaseTrainer + InfomapBinner (primary)
-- SemiBinEncoder + SinglePhaseTrainer + InfomapBinner (simpler regression guard)
-
-Both must run in under a minute each on CPU so they stay in the
-default `pytest` suite.
+Train → save → load → verify the loaded encoder produces identical
+embeddings. Protocol contracts live in ``tests/test_interfaces.py``.
 """
 
-import time
 from functools import partial
 
 import numpy as np
 import torch
-from sklearn.metrics import adjusted_rand_score
 
-from megobin.binners.infomap import InfomapBinner
-from megobin.data.semibin_sampler import SemiBinPairSampler
 from megobin.data.uncertain_gen_sampler import UncertainGenPairSampler
-from megobin.losses.hinge_contrastive import HingeContrastiveLoss
 from megobin.losses.mahalanobis_bce import MahalanobisBCELoss
-from megobin.encoders.semibin_encoder import SemiBinEncoder
 from megobin.encoders.uncertain_gen import UncertainGenEncoder
 from megobin.trainers.single_phase import SinglePhaseTrainer
-from megobin.trainers.two_phase import TwoPhaseTrainer
-
-
-# ---------------------------------------------------------------------------
-# Synthetic data fixture: N contigs from G genomes with distinct profiles
-# ---------------------------------------------------------------------------
 
 
 def _make_genome_cluster_features(
@@ -60,108 +40,6 @@ def _make_genome_cluster_features(
     split = np.concatenate([first, second], axis=0)
 
     return whole, split, labels
-
-
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-
-
-class TestUncertainGenEndToEnd:
-    def test_pipeline_recovers_cluster_structure(self):
-        torch.manual_seed(0)
-        start = time.perf_counter()
-
-        whole, split, labels = _make_genome_cluster_features(
-            n_genomes=3, contigs_per_genome=30, dim=32, seed=0, noise=0.03
-        )
-
-        sampler = UncertainGenPairSampler(
-            features_split=split, neg_per_pos=5, seed=0
-        )
-
-        encoder = UncertainGenEncoder(
-            input_dim=32, hidden_dim=32, embedding_dim=16, include_std=False
-        )
-        loss_fn = MahalanobisBCELoss(include_std=False)
-
-        phases = [
-            {
-                "params": "mean",
-                "epochs": 3,
-                "batch_size": 64,
-                "optimizer": partial(torch.optim.Adam, lr=5e-3),
-                "encoder_attrs": {"include_std": False},
-                "loss_attrs": {"include_std": False},
-            },
-            {
-                "params": "cov",
-                "epochs": 2,
-                "batch_size": 64,
-                "optimizer": partial(torch.optim.Adam, lr=5e-3),
-                "encoder_attrs": {"include_std": True},
-                "loss_attrs": {"include_std": True},
-            },
-        ]
-        trainer = TwoPhaseTrainer(phases=phases, device="cpu")
-        trainer.fit(encoder, sampler, loss_fn)
-
-        embeddings = encoder.encode(whole)
-        assert embeddings.shape == (whole.shape[0], 16)
-        assert np.isfinite(embeddings).all()
-
-        binner = InfomapBinner(k_neighbours=10, n_trials=5)
-        predicted = binner.cluster(embeddings)
-        assert len(predicted) == len(labels)
-
-        ari = adjusted_rand_score(labels, predicted)
-        assert ari > 0.3, f"ARI {ari:.3f} is not above the random baseline"
-
-        elapsed = time.perf_counter() - start
-        assert elapsed < 60, f"took {elapsed:.1f}s, needs to stay under 60s"
-
-
-class TestSemiBinEndToEnd:
-    def test_pipeline_recovers_cluster_structure(self):
-        torch.manual_seed(1)
-        start = time.perf_counter()
-
-        whole, split, labels = _make_genome_cluster_features(
-            n_genomes=3, contigs_per_genome=30, dim=32, seed=1, noise=0.03
-        )
-        n = whole.shape[0]
-
-        cannot_link = np.array(
-            [[i, j] for i in range(n) for j in range(n) if labels[i] != labels[j]]
-        )
-        sampler = SemiBinPairSampler(
-            features_split=split,
-            features_whole=whole,
-            cannot_link_pairs=cannot_link,
-            neg_per_pos=5,
-            max_pairs=10_000,
-            seed=1,
-        )
-
-        encoder = SemiBinEncoder(input_dim=32, embedding_dim=16, dropout=0.0)
-        loss_fn = HingeContrastiveLoss()
-
-        trainer = SinglePhaseTrainer(
-            optimizer=partial(torch.optim.Adam, lr=5e-3),
-            epochs=5,
-            batch_size=64,
-            device="cpu",
-        )
-        trainer.fit(encoder, sampler, loss_fn)
-
-        embeddings = encoder.encode(whole)
-        predicted = InfomapBinner(k_neighbours=10, n_trials=5).cluster(embeddings)
-
-        ari = adjusted_rand_score(labels, predicted)
-        assert ari > 0.3, f"ARI {ari:.3f} is not above the random baseline"
-
-        elapsed = time.perf_counter() - start
-        assert elapsed < 60, f"took {elapsed:.1f}s, needs to stay under 60s"
 
 
 class TestCheckpointResume:

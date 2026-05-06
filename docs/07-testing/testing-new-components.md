@@ -6,7 +6,7 @@ Three test files. <1 min on CPU.
 tests/
 ├── test_interfaces.py            Protocol compliance
 ├── test_dataset_compatibility.py Config / signal checks
-└── test_end_to_end.py            Two integration runs + checkpoint resume
+└── test_end_to_end.py            Checkpoint resume guard
 ```
 
 ## `test_interfaces.py` — Protocol conformance
@@ -14,24 +14,27 @@ tests/
 The workhorse. Pattern (from real file):
 
 ```python
-class TestSemiBinEncoderTrainingContract:
+class TestUncertainGenTrainingContract:
     def setup_method(self):
-        self.model = SemiBinEncoder(input_dim=32, embedding_dim=8)
+        self.model = UncertainGenEncoder(
+            input_dim=32, hidden_dim=16, embedding_dim=8
+        )
 
-    def test_parameter_groups(self):
-        assert "all" in self.model.parameter_groups()
+    def test_parameter_groups_has_mean_and_cov(self):
+        groups = self.model.parameter_groups()
+        assert set(groups) == {"mean", "cov", "all"}
 
     def test_encode_shape(self):
         z = self.model.encode(np.random.randn(20, 32).astype("float32"))
         assert z.shape == (20, 8)
 
-    def test_embedding_dim(self):
-        assert self.model.embedding_dim == 8
-
-    def test_training_step_returns_scalar_with_grad(self):
-        x_i, x_j = torch.randn(16, 32), torch.randn(16, 32)
-        label = torch.rand(16)
-        loss = self.model.training_step((x_i, x_j, label), HingeContrastiveLoss())
+    def test_training_step_phase1(self):
+        self.model.include_std = False
+        x_i, x_j = torch.randn(8, 32), torch.randn(8, 32)
+        label = torch.rand(8)
+        loss = self.model.training_step(
+            (x_i, x_j, label), MahalanobisBCELoss(include_std=False)
+        )
         assert loss.shape == ()
         loss.backward()
 ```
@@ -89,26 +92,19 @@ def test_feature_has_required_signals(self, name, expected_signals):
     ...
 ```
 
-## `test_end_to_end.py` — synthetic-data integration
-
-Three classes, all <60s:
+## `test_end_to_end.py` — checkpoint resume guard
 
 | Class | What |
 |-------|------|
-| `TestUncertainGenEndToEnd` | 90 contigs, 3 synthetic genomes, 3+2 epochs, `ARI > 0.3` |
-| `TestSemiBinEndToEnd` | Same shape, single-phase + hinge |
-| `TestCheckpointResume` | Save → load fresh → assert `np.allclose(z_a, z_b, atol=1e-6)` |
+| `TestCheckpointResume` | Train → save → load fresh → assert `np.allclose(z_a, z_b, atol=1e-6)` |
 
-ARI > 0.3 is a regression guard, not a quality gate.
-
-For a new encoder you want integration coverage on, copy `TestSemiBinEndToEnd` and swap in your encoder. Keep wall time <60s.
+For a new encoder you want integration coverage on, add a `TestXxxEndToEnd` here that trains briefly, encodes synthetic features, and asserts cluster recovery via your binner of choice. Keep wall time <60s.
 
 ## Running
 
 ```bash
 pytest tests/test_interfaces.py    # ~5s — before commit
 pytest tests/                      # ~90s — before PR
-sbatch hpc/slurm/smoke_test.sh     # on HPC
 ```
 
 ## Where to add a test

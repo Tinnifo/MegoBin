@@ -1,7 +1,8 @@
 from typing import Protocol, runtime_checkable
 
-import torch.nn as nn
-from torch.utils.data import Dataset
+from megobin.data.base import PairSampler
+from megobin.encoders.base import Encoder
+from megobin.losses.base import ContrastiveLoss
 
 
 @runtime_checkable
@@ -15,16 +16,14 @@ class Trainer(Protocol):
     ``parameter_groups`` so the trainer can treat them uniformly while
     still supporting multi-phase regimes.
 
-    ``sampler`` is a torch ``Dataset``-compatible ``PairSampler`` whose
-    batch layout matches what the encoder expects. ``loss_fn`` is an
-    ``nn.Module`` whose call signature matches what the encoder passes.
     Compatibility between (encoder, sampler, loss) is the user's
-    responsibility at config time.
+    responsibility at config time — the Protocols guarantee shape, not
+    that the batch layouts agree.
     """
 
     def fit(
         self,
-        encoder: nn.Module,
-        sampler: Dataset,
-        loss_fn: nn.Module,
+        encoder: Encoder,
+        sampler: PairSampler,
+        loss_fn: ContrastiveLoss,
     ) -> None: ...

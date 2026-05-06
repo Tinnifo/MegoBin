@@ -1,0 +1,21 @@
+# @package _global_
+
+defaults:
+  - /dataset: example
+  - /features: canonical_kmer_abundance
+  - /encoder: uncertain_gen
+  - /loss: mahalanobis_bce
+  - /binner: dbscan_ensemble
+  - /evaluator: checkm2
+  - /filter: no_op
+  - /pair_sampler: uncertain_gen
+  - /trainer: two_phase
+  - /logger: tensorboard
+  - _self_
+
+seed: 42
+use_abundance: true
+
+encoder:
+  input_dim: 136
+  embedding_dim: 256

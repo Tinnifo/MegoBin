@@ -40,7 +40,7 @@ Set `checkpoint_path: null` to disable. Both trainers use `save_checkpoint(encod
 
 ```bash
 python megobin/pipeline.py \
-  --config-name experiment/training/uncertain_gen_cami_toy \
+  --config-name experiment/uncertain_gen_dbscan \
   resume_from=outputs/2026-04-23/14-35-02/encoder.pt \
   binner=dbscan_ensemble
 ```
@@ -82,9 +82,9 @@ dvc remote add -d biocloud-s3 s3://tinnifo-metagenomic-binning/
 Version a dataset:
 
 ```bash
-dvc add data/CAMI_toy
-git add data/CAMI_toy.dvc .gitignore
-git commit -m "Track CAMI_toy with DVC"
+dvc add data/<your_dataset>
+git add data/<your_dataset>.dvc .gitignore
+git commit -m "Track <your_dataset> with DVC"
 dvc push
 ```
 
@@ -112,8 +112,8 @@ Anti-pattern: DVC-tracking every `outputs/` directory.
 ```bash
 git checkout $(jq -r '.git_sha' run_meta.json)
 mamba env create -f environment.yml && mamba activate megobin
-dvc pull data/CAMI_toy
-python megobin/pipeline.py --config-name experiment/training/uncertain_gen_cami_toy seed=1
+dvc pull data/<your_dataset>
+python megobin/pipeline.py --config-name experiment/uncertain_gen_dbscan seed=1
 ```
 
 Bit-for-bit identical is rare on GPUs. Eval metrics should land within tolerance.

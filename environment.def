@@ -16,7 +16,6 @@ From: nvcr.io/nvidia/pytorch:23.04-py3
         hydra-core>=1.3 omegaconf \
         tensorboard tabulate pyyaml dvc \
         scikit-learn>=1.2 pandas>=2.0 scipy>=1.10 \
-        python-igraph>=0.11 leidenalg infomap \
         pytest pytest-cov black ruff
 
     # CheckM2 + DIAMOND (bioconda packages via pip if not available)

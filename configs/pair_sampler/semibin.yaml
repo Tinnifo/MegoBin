@@ -1,4 +1,0 @@
-_target_: megobin.data.semibin_sampler.SemiBinPairSampler
-neg_per_pos: 500
-max_pairs: 4_000_000
-seed: ${seed}

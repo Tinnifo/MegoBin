@@ -1,9 +1,0 @@
-# Capability descriptor for CAMI 2 Toy Human Microbiome.
-#
-# `signals` enumerates what's available on disk; feature configs
-# declare what they need, and pipeline.py fails fast on a mismatch.
-
-name: CAMI_toy
-path: data/CAMI_toy/
-signals: [kmers, abundance, taxonomy]
-num_bams: 50

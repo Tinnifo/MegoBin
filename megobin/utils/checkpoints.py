@@ -2,12 +2,13 @@ import logging
 from pathlib import Path
 
 import torch
-import torch.nn as nn
+
+from megobin.encoders.base import Encoder
 
 log = logging.getLogger(__name__)
 
 
-def save_checkpoint(encoder: nn.Module, path: str | Path) -> Path:
+def save_checkpoint(encoder: Encoder, path: str | Path) -> Path:
     """Serialize an encoder's state dict to ``path``.
 
     Saves the state dict only (not the whole module); loading requires
@@ -21,7 +22,7 @@ def save_checkpoint(encoder: nn.Module, path: str | Path) -> Path:
     return path
 
 
-def load_checkpoint(encoder: nn.Module, path: str | Path) -> nn.Module:
+def load_checkpoint(encoder: Encoder, path: str | Path) -> Encoder:
     """Load weights into ``encoder`` in place. Returns the encoder.
 
     ``map_location="cpu"`` so a GPU-saved checkpoint loads on CPU-only

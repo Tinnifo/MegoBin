@@ -20,9 +20,6 @@ dependencies:
   - scipy>=1.10
   - scikit-learn>=1.2
   - pandas>=2.0
-  # Graphs (Infomap binner)
-  - python-igraph>=0.11
-  - leidenalg
   # Experiment tracking
   - tensorboard
   - tabulate         # pandas.to_markdown() dependency for TB dataframe logging
@@ -40,6 +37,3 @@ dependencies:
   - pytest-cov
   - black
   - ruff
-  # pip-only packages
-  - pip:
-    - infomap                  # Infomap community detection (not on conda)

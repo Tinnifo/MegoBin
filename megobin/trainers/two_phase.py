@@ -1,11 +1,14 @@
 import logging
 from pathlib import Path
-from typing import Any, Callable, Iterable, TYPE_CHECKING
+from typing import Any, Callable, Iterable, TYPE_CHECKING, cast
 
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
+from megobin.data.base import PairSampler
+from megobin.encoders.base import Encoder
+from megobin.losses.base import ContrastiveLoss
 from megobin.utils.checkpoints import save_checkpoint
 
 if TYPE_CHECKING:
@@ -73,9 +76,9 @@ class TwoPhaseTrainer:
 
     def fit(
         self,
-        encoder: nn.Module,
-        sampler: Dataset,
-        loss_fn: nn.Module,
+        encoder: Encoder,
+        sampler: PairSampler,
+        loss_fn: ContrastiveLoss,
     ) -> None:
         device = torch.device(self.device)
         encoder.to(device)
@@ -118,9 +121,9 @@ class TwoPhaseTrainer:
         self,
         phase_idx: int,
         phase: dict[str, Any],
-        encoder: nn.Module,
-        sampler: Dataset,
-        loss_fn: nn.Module,
+        encoder: Encoder,
+        sampler: PairSampler,
+        loss_fn: ContrastiveLoss,
         device: torch.device,
         global_step_ref: list[int],
     ) -> None:
@@ -158,8 +161,8 @@ class TwoPhaseTrainer:
         optimizer = optimizer_factory(trainable)
         scheduler = scheduler_factory(optimizer) if scheduler_factory else None
 
-        loader = DataLoader(
-            sampler,
+        loader: DataLoader = DataLoader(
+            cast(Dataset, sampler),
             batch_size=batch_size,
             shuffle=shuffle,
             num_workers=num_workers,

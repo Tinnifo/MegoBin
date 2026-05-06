@@ -13,6 +13,7 @@ outputs/2026-04-23/14-27-51/
 ├── pipeline.log            stdout+stderr
 ├── encoder.pt              Final checkpoint
 ├── bins/                   bin_XXXX.fasta files
+├── markers/                hmmsearch output cache (markers.hmmout + .json sidecar)
 └── tb/                     TensorBoard events
 ```
 
@@ -42,7 +43,7 @@ PyTorch state dict. Reuse without retraining:
 
 ```bash
 python megobin/pipeline.py \
-  --config-name experiment/hybrid_uncertain_gen \
+  --config-name experiment/uncertain_gen_dbscan \
   resume_from=outputs/2026-04-23/14-27-51/encoder.pt
 ```
 
@@ -51,6 +52,12 @@ Saved at end of `trainer.fit()`. Disable saving with `checkpoint_path: null`. In
 ## `bins/`
 
 One FASTA per bin, zero-padded IDs (`bin_0000.fasta`). Input to the evaluator.
+
+## `markers/`
+
+Cache for the marker-aware DBSCAN binner. `markers.hmmout` is the raw hmmsearch domain-table output; `markers.hmmout.json` is a fingerprint sidecar (FASTA size+mtime, `min_contig_len`, `orf_finder`). On re-runs `_call_markers_from_fasta` reuses the cache when fingerprints match, skipping the ORF + hmmsearch pass.
+
+Delete `markers/` to force a recompute. Absent when `+binner.contig_to_marker={}` is passed.
 
 ## `tb/`
 

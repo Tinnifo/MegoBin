@@ -1,0 +1,3 @@
+_target_: megobin.filters.uncertainty.UncertaintyFilter
+ratio: 0.10
+metric: max_variance

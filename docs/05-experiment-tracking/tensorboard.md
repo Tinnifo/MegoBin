@@ -67,7 +67,7 @@ Group under a named directory:
 
 ```bash
 python megobin/pipeline.py -m \
-  --config-name experiment/training/uncertain_gen_cami_toy \
+  --config-name experiment/uncertain_gen_dbscan \
   seed=1,2,3 \
   hydra.run.dir=outputs/ablation_k_neighbours/k\${binner.k_neighbours}_seed\${seed} \
   binner.k_neighbours=50,100,200

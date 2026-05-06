@@ -19,7 +19,7 @@ class Encoder(Protocol):
 - `training_step` — one batch → scalar loss. Encoder picks what to pass to the loss.
 - `parameter_groups` — named subsets for phase-based trainers. Minimum: `{"all": [...]}`.
 
-`UncertainGenEncoder` exposes `{"mean", "cov", "all"}`. `SemiBinEncoder` only `{"all"}`.
+`UncertainGenEncoder` exposes `{"mean", "cov", "all"}` so two-phase trainers can freeze each head independently.
 
 `training_step` lives on the encoder so different encoders can pass different things to the loss (e.g. UncertainGen passes `(μ, cov)` concatenations).
 
@@ -44,8 +44,7 @@ class Binner(Protocol):
 
 `(N, d)` → `(N,)` int labels. Non-parametric. Hyperparams via constructor.
 
-- `InfomapBinner` — dual k-NN graph + community detection.
-- `DBSCANEnsembleBinner` — 12 eps, marker-gene F1 selection.
+- `DBSCANEnsembleBinner` — 12 eps, marker-gene F1 selection. Marker resolution either takes a precomputed `contig_to_marker` dict or calls `_call_markers_from_fasta`, which runs an ORF finder ([megobin/utils/orffinding.py](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/megobin/utils/orffinding.py); default `fast-naive` is pure-Python, optional `prodigal`/`fraggenescan`) followed by `hmmsearch` against [megobin/utils/marker.hmm](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/megobin/utils/marker.hmm) (107 single-copy markers, ported from SemiBin). HMMER must be on PATH; see [installation.md](../02-getting-started/installation.md#external-tools).
 
 ## `Evaluator`
 
@@ -66,7 +65,7 @@ class PairSampler(Protocol):
 
 `Dataset`-shaped, returns `(feature_i, feature_j, label)`. Sampler declares its array kwargs in `__init__`; `pipeline.py` introspects and supplies them.
 
-- `UncertainGenPairSampler`, `SemiBinPairSampler`, `HybridPairSampler`.
+- `UncertainGenPairSampler`.
 
 ## `Trainer`
 

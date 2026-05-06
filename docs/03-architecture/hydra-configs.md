@@ -4,18 +4,19 @@
 
 ```
 configs/
-├── dataset/         CAMI_medium, CAMI_toy
+├── dataset/         example (placeholder; copy and edit for your data)
 ├── features/        canonical_kmer, canonical_kmer_abundance
-├── encoder/         uncertain_gen, semibin_encoder
+├── encoder/         uncertain_gen
 ├── loss/            hinge, mahalanobis_bce
-├── binner/          infomap, dbscan_ensemble
+├── binner/          dbscan_ensemble
+├── filter/          no_op, uncertainty
 ├── evaluator/       checkm2
-├── pair_sampler/    hybrid, semibin, uncertain_gen
+├── pair_sampler/    uncertain_gen
 ├── trainer/         single_phase, two_phase
 ├── optimizer/       adam, adamw, sgd
 ├── scheduler/       constant, cosine, step_lr
 ├── logger/          tensorboard, none
-└── experiment/      composed runs (+ training/ for pinned runs)
+└── experiment/      composed runs
 ```
 
 Each subdir is a Hydra group. CLI: `<group>=<config_name>`.
@@ -54,32 +55,35 @@ Trainer calls `factory(parameter_group)` when ready. Lets two-phase rebuild Adam
 # @package _global_
 
 defaults:
-  - _self_
-  - /dataset: CAMI_medium
+  - /dataset: example
   - /features: canonical_kmer_abundance
   - /encoder: uncertain_gen
   - /loss: mahalanobis_bce
-  - /binner: infomap
+  - /binner: dbscan_ensemble
   - /evaluator: checkm2
-  - /pair_sampler: hybrid
+  - /pair_sampler: uncertain_gen
   - /trainer: two_phase
   - /logger: tensorboard
+  - _self_
 
 seed: 42
-use_abundance: true
 
 encoder:
-  input_dim: 236
+  input_dim: 136
   embedding_dim: 256
 ```
 
 `# @package _global_` flattens keys to top level.
 
+`_self_` goes **last** in `defaults:` so the experiment's own keys (e.g. the `encoder:` block) override the slot defaults pulled in above. Putting `_self_` first silently inverts that — the slot YAML wins and your overrides are dropped.
+
+`encoder.input_dim` must equal `data_split.csv` column count (kmer features). In single-sample mode that's 136; in multi-sample mode the [norm_abundance gate](../02-getting-started/data-layout.md#the-norm_abundance-gate) keeps abundance and the dim grows to `136 + n_bams * 2`. `pipeline.py` trims `data.csv` automatically when the gate fires so training and inference dims align.
+
 ## CLI overrides
 
 ```bash
 # Swap component
-encoder=semibin_encoder
+filter=uncertainty
 
 # Field inside a component
 encoder.dropout=0.3
@@ -94,7 +98,7 @@ encoder.dropout=0.3
 ## Two flavours
 
 - `configs/experiment/*.yaml` — ad-hoc; override-friendly.
-- `configs/experiment/training/*.yaml` — pinned, reproducible. Naming: `{encoder}_{dataset}.yaml`.
+- Pinned reproducible configs can live alongside or in their own subdir; the only contract is that they bind every slot.
 
 ## Debug a config
 

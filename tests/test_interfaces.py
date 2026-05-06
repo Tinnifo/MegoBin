@@ -16,39 +16,13 @@ import pytest
 import torch
 
 from megobin.binners.dbscan_ensemble import DBSCANEnsembleBinner
-from megobin.binners.infomap import InfomapBinner
 from megobin.evaluators.checkm2 import CheckM2Evaluator
 from megobin.losses.hinge_contrastive import HingeContrastiveLoss
 from megobin.losses.mahalanobis_bce import MahalanobisBCELoss
-from megobin.encoders.semibin_encoder import SemiBinEncoder
 from megobin.encoders.uncertain_gen import UncertainGenEncoder
 
 
 # ---- Encoder ---------------------------------------------------------------
-
-
-class TestSemiBinEncoderTrainingContract:
-    def setup_method(self):
-        self.model = SemiBinEncoder(input_dim=32, embedding_dim=8)
-
-    def test_parameter_groups(self):
-        assert "all" in self.model.parameter_groups()
-
-    def test_encode_shape(self):
-        features = np.random.randn(20, 32).astype("float32")
-        z = self.model.encode(features)
-        assert z.shape == (20, 8)
-
-    def test_embedding_dim(self):
-        assert self.model.embedding_dim == 8
-
-    def test_training_step_returns_scalar_with_grad(self):
-        x_i = torch.randn(16, 32)
-        x_j = torch.randn(16, 32)
-        label = torch.rand(16)
-        loss = self.model.training_step((x_i, x_j, label), HingeContrastiveLoss())
-        assert loss.shape == ()
-        loss.backward()
 
 
 class TestUncertainGenTrainingContract:
@@ -147,40 +121,33 @@ class TestMahalanobisBCELoss:
 # ---- Binner ----------------------------------------------------------------
 
 
-class TestInfomapBinner:
-    def setup_method(self):
-        self.binner = InfomapBinner(k_neighbours=5, n_trials=3)
-
-    def test_cluster_returns_1d_int(self):
-        embeddings = np.random.randn(40, 10)
-        labels = self.binner.cluster(embeddings)
-        assert labels.ndim == 1
-        assert labels.shape[0] == 40
-        assert np.issubdtype(labels.dtype, np.integer)
-
-    def test_all_points_assigned(self):
-        embeddings = np.random.randn(30, 8)
-        labels = self.binner.cluster(embeddings)
-        assert len(labels) == 30
-        assert (labels >= 0).all()
+def _make_dbscan_binner(n: int) -> DBSCANEnsembleBinner:
+    names = np.array([f"c{i}" for i in range(n)])
+    # Half the contigs share marker "g0", the rest "g1" — gives the
+    # marker-F1 selection something to score on without needing prodigal.
+    c2m = {f"c{i}": ["g0"] if i < n // 2 else ["g1"] for i in range(n)}
+    return DBSCANEnsembleBinner(
+        eps_values=[0.1, 0.3, 0.7],
+        min_samples=3,
+        min_bin_size=3,
+        contig_names=names,
+        contig_lengths=np.full(n, 1000),
+        contig_to_marker=c2m,
+        n_total_markers=2,
+    )
 
 
 class TestDBSCANEnsembleBinner:
-    def setup_method(self):
-        self.binner = DBSCANEnsembleBinner(
-            eps_values=[0.1, 0.3, 0.7], min_samples=3, min_bin_size=3
-        )
-
     def test_cluster_returns_1d_int(self):
-        embeddings = np.random.randn(40, 10)
-        labels = self.binner.cluster(embeddings)
+        binner = _make_dbscan_binner(40)
+        labels = binner.cluster(np.random.randn(40, 10))
         assert labels.ndim == 1
         assert labels.shape[0] == 40
         assert np.issubdtype(labels.dtype, np.integer)
 
     def test_all_points_assigned(self):
-        embeddings = np.random.randn(30, 8)
-        labels = self.binner.cluster(embeddings)
+        binner = _make_dbscan_binner(30)
+        labels = binner.cluster(np.random.randn(30, 8))
         assert len(labels) == 30
         assert (labels >= 0).all()
 

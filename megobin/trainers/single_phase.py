@@ -1,11 +1,14 @@
 import logging
 from pathlib import Path
-from typing import Callable, Iterable, TYPE_CHECKING
+from typing import Callable, Iterable, TYPE_CHECKING, cast
 
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
+from megobin.data.base import PairSampler
+from megobin.encoders.base import Encoder
+from megobin.losses.base import ContrastiveLoss
 from megobin.utils.checkpoints import save_checkpoint
 
 if TYPE_CHECKING:
@@ -64,9 +67,9 @@ class SinglePhaseTrainer:
 
     def fit(
         self,
-        encoder: nn.Module,
-        sampler: Dataset,
-        loss_fn: nn.Module,
+        encoder: Encoder,
+        sampler: PairSampler,
+        loss_fn: ContrastiveLoss,
     ) -> None:
         device = torch.device(self.device)
         encoder.to(device)
@@ -87,8 +90,10 @@ class SinglePhaseTrainer:
         optimizer = self.optimizer_factory(trainable)
         scheduler = self.scheduler_factory(optimizer) if self.scheduler_factory else None
 
-        loader = DataLoader(
-            sampler,
+        # PairSampler implementations are torch Datasets in practice;
+        # the Protocol just doesn't inherit from Dataset.
+        loader: DataLoader = DataLoader(
+            cast(Dataset, sampler),
             batch_size=self.batch_size,
             shuffle=self.shuffle,
             num_workers=self.num_workers,

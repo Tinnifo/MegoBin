@@ -1,0 +1,10 @@
+# Placeholder dataset config — copy and edit for your own data.
+#
+# `signals` enumerates what's available on disk; feature configs declare
+# what they need (`required_signals`), and pipeline.py fails fast on a
+# mismatch.
+
+name: example
+path: data/example/
+signals: [kmers, abundance]
+num_bams: 1
