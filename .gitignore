@@ -43,6 +43,10 @@ multirun/
 *.swp
 *.swo
 
+
+# Type checker cache
+.mypy_cache/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -50,6 +54,11 @@ Thumbs.db
 # Env
 .env
 .venv/
+.venv*/
 
 CLAUDE-codebase.md
 CLAUDE.md
+.claude/
+
+
+bins/
