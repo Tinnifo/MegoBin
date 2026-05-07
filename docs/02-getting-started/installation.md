@@ -7,8 +7,8 @@
 ## Clone
 
 ```bash
-git clone https://github.com/Tinnifo/Metagenomic-Binning.git
-cd Metagenomic-Binning
+git clone https://github.com/Tinnifo/MegoBin.git
+cd MegoBin
 ```
 
 ## Option A — Conda (laptop, BioCloud)
