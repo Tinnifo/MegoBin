@@ -10,7 +10,7 @@ Dataset → Features (shared) → Encoder → Trainer → Binner → Evaluator
 
 - **Encoder** — features → embeddings
 - **Binner** — embeddings → cluster labels
-- **Evaluator** — labels → completeness/contamination (CheckM2)
+- **Evaluator** — labels → completeness/contamination ([CheckM2](https://github.com/chklovski/CheckM2))
 
 Run an experiment:
 

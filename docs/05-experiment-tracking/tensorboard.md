@@ -1,6 +1,6 @@
 # TensorBoard
 
-Default tracker. The `Logger` Protocol is six methods — swap to W&B or MLflow by writing one class.
+Default tracker (see [TensorBoard docs](https://www.tensorflow.org/tensorboard/get_started) and the [PyTorch SummaryWriter API](https://pytorch.org/docs/stable/tensorboard.html)). The `Logger` Protocol is six methods — swap to W&B or MLflow by writing one class.
 
 ## What's logged
 
@@ -11,7 +11,7 @@ Default tracker. The `Logger` Protocol is six methods — swap to W&B or MLflow 
 | Per-epoch `train/epoch_loss`, `train/lr` | Scalars  | Each epoch / step            |
 | Phase-scoped `phase{n}/...` | Scalars               | Two-phase only               |
 | `eval/mean_completeness`, `eval/mean_contamination`, `eval/n_bins` | Scalars | Once at evaluation |
-| CheckM2 per-bin DataFrame | Text (markdown)         | Once at evaluation           |
+| [CheckM2](https://github.com/chklovski/CheckM2) per-bin DataFrame | Text (markdown)         | Once at evaluation           |
 | Per-column histograms    | Histograms               | Once at evaluation           |
 | Checkpoints              | `checkpoints/` subdir    | After save                   |
 
@@ -63,7 +63,7 @@ tensorboard --logdir ~/local-outputs/
 
 ## Ablation runs
 
-Group under a named directory:
+Group under a named directory ([Hydra multi-run](https://hydra.cc/docs/tutorials/basic/running_your_app/multi-run/)):
 
 ```bash
 python megobin/pipeline.py -m \

@@ -1,6 +1,6 @@
 # Checkpoints and DVC
 
-Three artifacts per run: `encoder.pt`, `.hydra/config.yaml`, `run_meta.json`. DVC handles the large stuff.
+Three artifacts per run: `encoder.pt`, `.hydra/config.yaml`, `run_meta.json`. [DVC](https://dvc.org/doc) handles the large stuff.
 
 ## What's saved
 
@@ -13,7 +13,7 @@ outputs/2026-04-23/14-35-02/
 ├── pipeline.log
 ├── encoder.pt               trained weights
 ├── bins/                    output FASTAs
-├── checkm2/quality_report.tsv
+├── checkm2/quality_report.tsv   ([CheckM2 schema](https://github.com/chklovski/CheckM2#how-to-interpret-the-output))
 └── tb/
     ├── events.out.tfevents.*
     ├── run_meta.json        provenance
@@ -70,7 +70,7 @@ Written by `TensorBoardLogger.log_config`:
 
 ## DVC
 
-For datasets and pinned checkpoints. `.gitignore` already excludes `data/`, `outputs/`, `.dvc/cache/`.
+For datasets and pinned checkpoints. `.gitignore` already excludes `data/`, `outputs/`, `.dvc/cache/`. Reference: [DVC user guide](https://dvc.org/doc/user-guide), [`dvc add`](https://dvc.org/doc/command-reference/add), [`dvc remote`](https://dvc.org/doc/command-reference/remote).
 
 Setup:
 

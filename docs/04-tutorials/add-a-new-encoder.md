@@ -71,6 +71,8 @@ embedding_dim: 768
 dropout: 0.1
 ```
 
+[`_target_`](https://hydra.cc/docs/advanced/instantiate_objects/overview/) is the import path Hydra calls with the remaining keys as kwargs.
+
 ## Step 4 — Run
 
 ```bash
@@ -82,7 +84,7 @@ python megobin/pipeline.py \
   pair_sampler=uncertain_gen
 ```
 
-(Single-head encoder → single-phase trainer + hinge loss.)
+(Single-head encoder → single-phase trainer + hinge loss.) Each `key=value` is a [Hydra config-group override](https://hydra.cc/docs/advanced/override_grammar/basic/).
 
 ## Step 5 — Add a test
 

@@ -32,7 +32,7 @@ class ContrastiveLoss(Protocol):
 
 `label`: 1 = must-link, 0 = cannot-link.
 
-- `HingeContrastiveLoss` — SemiBin's loss.
+- `HingeContrastiveLoss` — [SemiBin](https://github.com/BigDataBiology/SemiBin)'s loss ([SemiBin paper](https://www.nature.com/articles/s41467-022-29843-y)).
 - `MahalanobisBCELoss` — UncertainGen's. `include_std` flag flipped between phases.
 
 ## `Binner`
@@ -44,7 +44,7 @@ class Binner(Protocol):
 
 `(N, d)` → `(N,)` int labels. Non-parametric. Hyperparams via constructor.
 
-- `DBSCANEnsembleBinner` — 12 eps, marker-gene F1 selection. Marker resolution either takes a precomputed `contig_to_marker` dict or calls `_call_markers_from_fasta`, which runs an ORF finder ([megobin/utils/orffinding.py](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/megobin/utils/orffinding.py); default `fast-naive` is pure-Python, optional `prodigal`/`fraggenescan`) followed by `hmmsearch` against [megobin/utils/marker.hmm](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/megobin/utils/marker.hmm) (107 single-copy markers, ported from SemiBin). HMMER must be on PATH; see [installation.md](../02-getting-started/installation.md#external-tools).
+- `DBSCANEnsembleBinner` — 12 eps, marker-gene F1 selection. Marker resolution either takes a precomputed `contig_to_marker` dict or calls `_call_markers_from_fasta`, which runs an ORF finder ([megobin/utils/orffinding.py](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/megobin/utils/orffinding.py); default `fast-naive` is pure-Python, optional [`prodigal`](https://github.com/hyattpd/Prodigal)/[`fraggenescan`](https://sourceforge.net/projects/fraggenescan/)) followed by [`hmmsearch`](http://hmmer.org/documentation.html) against [megobin/utils/marker.hmm](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/megobin/utils/marker.hmm) (107 single-copy markers, [ported verbatim from SemiBin](https://github.com/BigDataBiology/SemiBin/blob/main/SemiBin/marker.hmm)). HMMER must be on PATH; see [installation.md](../02-getting-started/installation.md#external-tools).
 
 ## `Evaluator`
 
@@ -53,7 +53,7 @@ class Evaluator(Protocol):
     def score(self, bins_dir: Path) -> pd.DataFrame: ...
 ```
 
-`CheckM2Evaluator` raises `FileNotFoundError` if CheckM2 not on PATH; `pipeline.py` catches and continues.
+`CheckM2Evaluator` raises `FileNotFoundError` if [CheckM2](https://github.com/chklovski/CheckM2) not on PATH; `pipeline.py` catches and continues. Output columns (`completeness`, `contamination`) follow the [CheckM2 quality_report.tsv](https://github.com/chklovski/CheckM2#how-to-interpret-the-output) schema.
 
 ## `PairSampler`
 

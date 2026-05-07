@@ -19,7 +19,7 @@ Why: removes confounds, makes ablations cheap. `_check_signal_compatibility` in 
 
 ## 3. Hydra for composition
 
-Experiment configs declare their slots via `defaults:`:
+Experiment configs declare their slots via [`defaults:`](https://hydra.cc/docs/advanced/defaults_list/):
 
 ```yaml
 defaults:
@@ -40,6 +40,7 @@ Experiment configs use Hydra composition with `_self_` placed last in the `defau
 At the moment, the project uses a single experiment-config layout under `configs/experiment/*.yaml`. This layout is designed to be override-friendly: experiments inherit common building blocks through `defaults:` and only redefine the settings that need to change.
 
 Optimizers and schedulers are declared with `_partial_: true`. This means the config provides a callable factory instead of constructing the object immediately, allowing the trainer to instantiate fresh optimizers or schedulers separately for each training phase. See the [Hydra object instantiation docs](https://hydra.cc/docs/advanced/instantiate_objects/overview/).
+
 
 
 

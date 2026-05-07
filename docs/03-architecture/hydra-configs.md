@@ -1,5 +1,7 @@
 # Hydra configs
 
+Built on [Hydra](https://hydra.cc/docs/intro/) + [OmegaConf](https://omegaconf.readthedocs.io/). If anything below is unfamiliar, the linked sections are the canonical reference.
+
 ## Tree
 
 ```
@@ -19,7 +21,7 @@ configs/
 └── experiment/      composed runs
 ```
 
-Each subdir is a Hydra group. CLI: `<group>=<config_name>`.
+Each subdir is a [Hydra config group](https://hydra.cc/docs/tutorials/basic/your_first_app/config_groups/). CLI: `<group>=<config_name>`.
 
 ## A slot config
 
@@ -32,11 +34,11 @@ embedding_dim: 256
 dropout: 0.2
 ```
 
-`hydra.utils.instantiate(cfg.encoder)` becomes `UncertainGenEncoder(**kwargs)`.
+[`hydra.utils.instantiate(cfg.encoder)`](https://hydra.cc/docs/advanced/instantiate_objects/overview/) becomes `UncertainGenEncoder(**kwargs)`.
 
 ## `_partial_: true`
 
-Optimizers and schedulers return a **factory**, not an instance:
+Optimizers and schedulers return a **factory**, not an instance ([partial instantiation](https://hydra.cc/docs/advanced/instantiate_objects/overview/#partial-instantiation)):
 
 ```yaml
 # configs/optimizer/adam.yaml
@@ -73,13 +75,15 @@ encoder:
   embedding_dim: 256
 ```
 
-`# @package _global_` flattens keys to top level.
+[`# @package _global_`](https://hydra.cc/docs/advanced/overriding_packages/) flattens keys to top level.
 
-`_self_` goes **last** in `defaults:` so the experiment's own keys (e.g. the `encoder:` block) override the slot defaults pulled in above. Putting `_self_` first silently inverts that — the slot YAML wins and your overrides are dropped.
+[`_self_`](https://hydra.cc/docs/advanced/defaults_list/#composition-order-of-primary-config) goes **last** in `defaults:` so the experiment's own keys (e.g. the `encoder:` block) override the slot defaults pulled in above. Putting `_self_` first silently inverts that — the slot YAML wins and your overrides are dropped.
 
 `encoder.input_dim` must equal `data_split.csv` column count (kmer features). In single-sample mode that's 136; in multi-sample mode the [norm_abundance gate](../02-getting-started/data-layout.md#the-norm_abundance-gate) keeps abundance and the dim grows to `136 + n_bams * 2`. `pipeline.py` trims `data.csv` automatically when the gate fires so training and inference dims align.
 
 ## CLI overrides
+
+Full grammar: [Hydra override syntax](https://hydra.cc/docs/advanced/override_grammar/basic/).
 
 ```bash
 # Swap component
@@ -91,7 +95,7 @@ encoder.dropout=0.3
 # Add a missing key
 +debug=true
 
-# Sweep
+# Sweep — see https://hydra.cc/docs/tutorials/basic/running_your_app/multi-run/
 -m seed=1,2,3
 ```
 
@@ -106,12 +110,14 @@ encoder.dropout=0.3
 python megobin/pipeline.py --config-name <name> --cfg job
 ```
 
-Prints resolved config without running. Best single debugging tool.
+Prints resolved config without running. Best single debugging tool. See [Hydra command-line flags](https://hydra.cc/docs/advanced/hydra-command-line-flags/) for `--cfg`, `--info`, `--resolve`, etc.
 
 ## Interpolations
 
+[OmegaConf variable interpolation](https://omegaconf.readthedocs.io/en/latest/usage.html#variable-interpolation):
+
 - `${seed}` — top-level field
-- `${hydra:runtime.output_dir}` — per-run dir
+- `${hydra:runtime.output_dir}` — per-run dir (see [Hydra runtime variables](https://hydra.cc/docs/configure_hydra/intro/))
 
 ## Failure modes
 
