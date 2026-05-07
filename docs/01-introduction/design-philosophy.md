@@ -9,7 +9,7 @@ Every swappable piece is a Python `Protocol` (`@runtime_checkable`), not a base 
 - `Encoder` — `megobin/encoders/base.py`
 - `Binner`, `Evaluator`, `ContrastiveLoss`, `PairSampler`, `Trainer`, `Logger` — same pattern.
 
-Adding an encoder = ~100 lines of Python + ~5 lines of YAML. `pipeline.py` is 230 lines of straight-line code.
+Adding an encoder = ~100 lines of Python + ~5 lines of YAML. `pipeline.py` is 230 lines of code.
 
 ## 2. Features are shared
 
