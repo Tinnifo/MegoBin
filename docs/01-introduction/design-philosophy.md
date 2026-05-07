@@ -13,7 +13,7 @@ Adding an encoder = ~100 lines of Python + ~5 lines of YAML. `pipeline.py` is 23
 
 ## 2. Features are shared
 
-Feature computation lives in [megobin/features/](https://github.com/Tinnifo/Metagenomic-Binning/tree/main/megobin/features) and runs **once** per dataset. Encoders read shared `data.csv` (whole-contig kmer + abundance) and `data_split.csv` (half-contig kmer for pair sampling). See [data-layout.md](../02-getting-started/data-layout.md).
+Feature computation lives in [megobin/features/](https://github.com/Tinnifo/Metagenomic-Binning/tree/main/megobin/features) and runs **once** per dataset. Encoders read shared `data.csv` (whole-contig kmer + abundance) and `data_split.csv` (half-contig kmer for pair sampling). 
 
 Why: removes confounds, makes ablations cheap. `_check_signal_compatibility` in `pipeline.py` aborts before file I/O if `features.required_signals` ⊄ `dataset.signals`.
 
@@ -35,16 +35,13 @@ defaults:
   - _self_
 ```
 
-`_self_` last — so per-experiment `encoder:` / `trainer:` blocks override the slot defaults rather than the other way around.
+Experiment configs use Hydra composition with `_self_` placed last in the `defaults:` list. This ensures that shared slot configs such as the encoder or trainer are loaded first, and any values defined directly in the experiment config are applied afterward. As a result, per-experiment `encoder:` and `trainer:` blocks override slot defaults, rather than being overwritten by them. 
 
-One flavour for now: `configs/experiment/*.yaml` (override-friendly).
+At the moment, the project uses a single experiment-config layout under `configs/experiment/*.yaml`. This layout is designed to be override-friendly: experiments inherit common building blocks through `defaults:` and only redefine the settings that need to change.
 
-Optimizers/schedulers use `_partial_: true` so the trainer can rebuild them per phase.
+Optimizers and schedulers are declared with `_partial_: true`. This means the config provides a callable factory instead of constructing the object immediately, allowing the trainer to instantiate fresh optimizers or schedulers separately for each training phase. See the [Hydra object instantiation docs](https://hydra.cc/docs/advanced/instantiate_objects/overview/).
 
-## 4. Components don't import each other
 
-UncertainGen does not import the contrastive loss it composes with. Hinge loss does not import Mahalanobis. Copy code, pay the duplication cost. The win: delete any component without cascading breakage.
 
-## Why
 
-Optimized for cheap "what if X?" experiments. That iteration rate is the rate-limiting variable.
+
