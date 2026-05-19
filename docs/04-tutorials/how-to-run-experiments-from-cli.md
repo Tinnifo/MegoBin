@@ -1,4 +1,4 @@
-# Tutorial: How to run experiments from CLI
+# How to run experiments from CLI
 
 A practical [Hydra](https://hydra.cc/docs/intro/) CLI cheatsheet shaped around MegoBin's slot structure. Grouped by what you're *trying to do* rather than by Hydra feature name.
 
