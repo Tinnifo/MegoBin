@@ -83,7 +83,7 @@ encoder:
 
 ## CLI overrides
 
-Full grammar: [Hydra override syntax](https://hydra.cc/docs/advanced/override_grammar/basic/).
+See [How to run experiments from CLI](../04-tutorials/how-to-run-experiments-from-cli.md)
 
 ```bash
 # Swap component
