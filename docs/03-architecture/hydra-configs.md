@@ -75,11 +75,31 @@ encoder:
   embedding_dim: 256
 ```
 
-[`# @package _global_`](https://hydra.cc/docs/advanced/overriding_packages/) flattens keys to top level.
+`# @package _global_` (first line of the experiment YAML; see [Hydra Packages](https://hydra.cc/docs/advanced/overriding_packages/)) — Without this, Hydra would nest this file under an `experiment:` key (because it lives in `configs/experiment/`). With it, `seed`, `encoder`, and your overrides land at the **top level** of the merged config, which is what the pipeline expects (`cfg.encoder`, `cfg.seed`, etc.).
 
-[`_self_`](https://hydra.cc/docs/advanced/defaults_list/#composition-order-of-primary-config) goes **last** in `defaults:` so the experiment's own keys (e.g. the `encoder:` block) override the slot defaults pulled in above. Putting `_self_` first silently inverts that — the slot YAML wins and your overrides are dropped.
+**Without `_global_` (conceptually):**
 
-`encoder.input_dim` must equal `data_split.csv` column count (kmer features). In single-sample mode that's 136; in multi-sample mode the [norm_abundance gate](../02-getting-started/data-layout.md#the-norm_abundance-gate) keeps abundance and the dim grows to `136 + n_bams * 2`. `pipeline.py` trims `data.csv` automatically when the gate fires so training and inference dims align.
+```yaml
+experiment:
+  seed: 42
+  encoder:
+    input_dim: 136
+```
+
+**With `_global_` (what MegoBin uses):**
+
+```yaml
+seed: 42
+encoder:
+  input_dim: 136
+  # ...rest from configs/encoder/uncertain_gen.yaml
+trainer:
+  # ...from configs/trainer/two_phase.yaml
+```
+
+`_self_` (see [Hydra defaults list — composition order](https://hydra.cc/docs/advanced/defaults_list/#composition-order)) goes **last** in `defaults:` so the experiment's own keys (e.g. the `encoder:` block) override the slot defaults pulled in above. Putting `_self_` first silently inverts that — the slot YAML wins and your overrides are dropped.
+
+`encoder.input_dim` must equal `data_split.csv` column count (kmer features). In single-sample mode that's 136; in multi-sample mode the [norm_abundance gate](../../megobin/pipeline.py) keeps abundance and the dim grows to `136 + n_bams * 2`. `pipeline.py` trims `data.csv` automatically when the gate fires so training and inference dims align.
 
 ## CLI overrides
 
