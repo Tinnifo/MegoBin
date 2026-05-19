@@ -189,7 +189,6 @@ That submits 10 individual SLURM jobs from one command. Each gets its own GPU an
 
 ## Gotchas
 
-A few things that bite people once and then never again:
 
 The shell will mangle some characters. `'`-quote anything with `()`, `[]`, `*`, `,`, or spaces. If a sweep value looks like an expression, quote the whole `key='expr(...)'` argument.
 
