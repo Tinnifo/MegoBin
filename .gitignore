@@ -61,5 +61,5 @@ CLAUDE.md
 .claude/
 
 # local wiki setup
-bins/.wiki
+/.wiki/
 CLAUDE.local.md
