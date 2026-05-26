@@ -60,5 +60,6 @@ CLAUDE-codebase.md
 CLAUDE.md
 .claude/
 
-
-bins/
+# local wiki setup
+bins/.wiki
+CLAUDE.local.md
