@@ -3,6 +3,7 @@
 # https://github.com/BigDataBiology/SemiBin/blob/main/SemiBin/utils.py
 
 import logging
+import multiprocessing
 import os
 import tempfile
 from collections import defaultdict
@@ -71,7 +72,13 @@ class DBSCANEnsembleBinner:
             None if output_dir is None else os.fspath(output_dir)
         )
         self.min_contig_len = min_contig_len
-        self.num_process = num_process
+        # Mirror SemiBin's argparse normalization (validate_normalize_args),
+        # which the binner API bypasses: 0 means "use all CPUs", and the
+        # count is clamped to the number of available CPUs. Without this the
+        # default num_process=0 crashes ORF finding (Pool needs >= 1 process;
+        # prodigal divides by num_process).
+        cpu_count = multiprocessing.cpu_count()
+        self.num_process = min(num_process or cpu_count, cpu_count)
         self.orf_finder = orf_finder
         self.prodigal_output_faa = prodigal_output_faa
 

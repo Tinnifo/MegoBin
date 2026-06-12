@@ -7,6 +7,7 @@ Every component must satisfy its Protocol:
 - Evaluator.score() returns DataFrame with completeness & contamination
 """
 
+import multiprocessing
 from pathlib import Path
 from unittest.mock import patch
 
@@ -150,6 +151,19 @@ class TestDBSCANEnsembleBinner:
         labels = binner.cluster(np.random.randn(30, 8))
         assert len(labels) == 30
         assert (labels >= 0).all()
+
+    def test_num_process_zero_normalized_to_cpu_count(self):
+        # Default num_process=0 means "use all CPUs"; it must be
+        # normalized so ORF finding doesn't crash (Pool / division by zero).
+        binner = DBSCANEnsembleBinner(contig_to_marker={})
+        assert binner.num_process == multiprocessing.cpu_count()
+
+    def test_num_process_clamped_to_cpu_count(self):
+        binner = DBSCANEnsembleBinner(
+            contig_to_marker={},
+            num_process=multiprocessing.cpu_count() + 100,
+        )
+        assert binner.num_process == multiprocessing.cpu_count()
 
 
 # ---- Evaluator -------------------------------------------------------------
