@@ -1,0 +1,9 @@
+_target_: megobin.encoders.semibin_2.SemiBin2Encoder
+# Single-sample long-read defaults. For combined mode (>=5 BAMs) set
+# is_combined: true and input_dim: 136 + n_sample (abundance enters the net).
+input_dim: 136      # network input width (136 single; 136 + n_sample combined)
+kmer_dim: 136       # k-mer block width (split point for the depth concat)
+hidden_dim: 512
+output_dim: 100     # SemiBin embedding dimension
+dropout: 0.2
+is_combined: false

@@ -31,6 +31,11 @@ dev = [
     "mypy>=1.11",
     "types-PyYAML",
 ]
+# Optional: the SemiBin2 reference oracle for fidelity testing. Not needed for
+# the default fidelity suite (those tests self-skip when SemiBin is absent).
+fidelity = [
+    "SemiBin>=2.3",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -38,6 +43,17 @@ include = ["megobin*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The default suite is laptop-friendly: CPU-only, minutes, no external tools or
+# data. Opt into the gated tests with `pytest -m real_data` or `-m slow`
+# (or `-m ""` to run everything).
+addopts = "-m 'not slow and not real_data'"
+markers = [
+    "slow: minutes+ runtime; excluded from the default suite",
+    "real_data: needs external genomes/BAMs/SemiBin bin_long/CheckM2; excluded by default",
+]
+filterwarnings = [
+    "ignore:Precomputed sparse input was not sorted by row values",
+]
 
 [tool.mypy]
 files = ["megobin"]

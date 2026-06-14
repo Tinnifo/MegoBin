@@ -100,9 +100,25 @@ class SinglePhaseTrainer:
             pin_memory=(device.type == "cuda"),
         )
 
+        # Samplers may resample their pairs each epoch (e.g. SemiBin2's
+        # per-epoch cannot-link redraw). Duck-typed so samplers without it
+        # (UncertainGen) are unaffected. Resampling mutates the in-process
+        # Dataset, so it only reaches workers when num_workers == 0.
+        resample = getattr(sampler, "set_epoch", None)
+        if callable(resample) and self.num_workers > 0:
+            log.warning(
+                "Sampler %s resamples per epoch but num_workers=%d > 0; worker "
+                "copies won't see the resampled pairs. Use num_workers=0 for "
+                "faithful per-epoch resampling.",
+                type(sampler).__name__,
+                self.num_workers,
+            )
+
         encoder.train()
         global_step = 0
         for epoch in range(self.epochs):
+            if callable(resample):
+                resample(epoch)
             running = 0.0
             n_batches = 0
             for batch in loader:

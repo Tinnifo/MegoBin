@@ -16,6 +16,10 @@ dist/
 data/*
 !data/.gitkeep
 
+# Downloaded real-genome fidelity fixtures (regenerate via download_fixture);
+# the small accessions manifest + cached oracle CSVs under tests/ stay tracked.
+tests/fidelity/data/real/
+
 # DVC internals
 .dvc/cache/
 .dvc/tmp/
@@ -63,3 +67,4 @@ CLAUDE.md
 # local wiki setup
 /.wiki/
 CLAUDE.local.md
+.wiki
