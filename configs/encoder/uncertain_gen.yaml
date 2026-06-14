@@ -1,4 +1,4 @@
-_target_: megobin.encoders.uncertain_gen.UncertainGenEncoder
+_target_: megobin.encoders.uncertaingen.UncertainGenEncoder
 input_dim: 256
 hidden_dim: 512
 embedding_dim: 256

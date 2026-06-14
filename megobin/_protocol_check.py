@@ -11,11 +11,11 @@ themselves.
 """
 
 from megobin.binners.base import Binner
-from megobin.binners.dbscan_ensemble import DBSCANEnsembleBinner
+from megobin.binners.semibin_2 import DBSCANEnsembleBinner
 from megobin.data.base import PairSampler
 from megobin.data.uncertain_gen_sampler import UncertainGenPairSampler
 from megobin.encoders.base import Encoder
-from megobin.encoders.uncertain_gen import UncertainGenEncoder
+from megobin.encoders.uncertaingen import UncertainGenEncoder
 from megobin.evaluators.base import Evaluator
 from megobin.evaluators.checkm2 import CheckM2Evaluator
 from megobin.filters.base import Filter

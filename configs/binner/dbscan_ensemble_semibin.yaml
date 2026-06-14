@@ -1,0 +1,14 @@
+# SemiBin-faithful long-read variant of the DBSCAN ensemble binner:
+# minfasta > 0 activates SemiBin's bp-based bin sizing — sub-minfasta
+# clusters are never extracted, the greedy loop stops once the remaining
+# contigs total < minfasta bp, and leftover contigs are labelled -1
+# (dropped by the pipeline, mirroring SemiBin's write_bins(minfasta=...)).
+_target_: megobin.binners.semibin_2.DBSCANEnsembleBinner
+eps_values: [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55]
+min_samples: 5
+min_bin_size: 1
+minfasta: 200000
+k_neighbours: 200
+n_total_markers: 107
+orf_finder: fast-naive
+num_process: 1   # marker ORF-finding workers; override e.g. binner.num_process=8

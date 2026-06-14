@@ -290,12 +290,32 @@ def main(cfg: DictConfig) -> None:
             type(filter_obj).__name__,
         )
 
+    # ---- Contig lengths (DBSCAN length-weighting + minfasta bin sizing) ----
+    fasta_path = dataset_path / "contigs.fasta"
+    name_to_seq: dict[str, str] = {}
+    if fasta_path.exists():
+        from megobin.utils.fasta import fasta_iter
+
+        name_to_seq = dict(fasta_iter(str(fasta_path)))
+
+    contig_lengths = None
+    if name_to_seq and kept_names is not None:
+        lens = [len(name_to_seq.get(str(name), "")) for name in kept_names]
+        if all(ell > 0 for ell in lens):
+            contig_lengths = np.asarray(lens)
+        else:
+            log.warning(
+                "Some contigs missing from %s — DBSCAN length-weighting disabled.",
+                fasta_path,
+            )
+
     # ---- Binner (instantiated post-filter so contig_names aligns) ----
     binner = _instantiate_binner(
         cfg.binner,
         {
-            "contig_fasta": str(dataset_path / "contigs.fasta"),
+            "contig_fasta": str(fasta_path),
             "contig_names": kept_names,
+            "contig_lengths": contig_lengths,
             "output_dir": str(Path.cwd() / "markers"),
         },
     )
@@ -303,29 +323,25 @@ def main(cfg: DictConfig) -> None:
 
     # ---- Cluster ----
     labels = binner.cluster(embeddings)
-    n_bins = len(np.unique(labels))
+    n_bins = len(np.unique(labels[labels >= 0]))
     log.info("Bins: %d", n_bins)
 
-    # ---- Write bins as FASTA for evaluator ----
+    # ---- Write bins as FASTA for evaluator (label -1 = unbinned, skipped) ----
     bins_dir = Path("bins")
     bins_dir.mkdir(exist_ok=True)
 
-    if kept_names is not None:
-        fasta_path = dataset_path / "contigs.fasta"
-        if fasta_path.exists():
-            from megobin.utils.fasta import fasta_iter
+    if kept_names is not None and name_to_seq:
+        for bin_id in np.unique(labels):
+            if bin_id < 0:
+                continue
+            members = kept_names[labels == bin_id]
+            with open(bins_dir / f"bin_{bin_id:04d}.fasta", "w") as f:
+                for name in members:
+                    seq = name_to_seq.get(str(name), "")
+                    if seq:
+                        f.write(f">{name}\n{seq}\n")
 
-            name_to_seq = dict(fasta_iter(str(fasta_path)))
-
-            for bin_id in np.unique(labels):
-                members = kept_names[labels == bin_id]
-                with open(bins_dir / f"bin_{bin_id:04d}.fasta", "w") as f:
-                    for name in members:
-                        seq = name_to_seq.get(str(name), "")
-                        if seq:
-                            f.write(f">{name}\n{seq}\n")
-
-            log.info("Wrote %d bin FASTA files to %s", n_bins, bins_dir)
+        log.info("Wrote %d bin FASTA files to %s", n_bins, bins_dir)
 
     # ---- Evaluate ----
     try:
