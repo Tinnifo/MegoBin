@@ -90,8 +90,6 @@ def main(argv=None) -> None:
         abundances=args.abundances,
     )
 
-    # The pipeline reads contigs.fasta from the dataset dir (binner markers +
-    # bin writing). Provide it next to data.csv with the same bare names.
     dst = os.path.join(args.out, "contigs.fasta")
     if os.path.abspath(args.contigs) != os.path.abspath(dst):
         shutil.copyfile(args.contigs, dst)
