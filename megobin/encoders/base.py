@@ -26,20 +26,12 @@ class Encoder(Protocol):
     (e.g. UncertainGen's ``mean`` and ``cov`` heads).
     """
 
-    # ------------------------------------------------------------------
-    # Inference
-    # ------------------------------------------------------------------
-
     def encode(self, features: np.ndarray) -> np.ndarray:
         """(N, input_dim) → (N, embedding_dim)."""
         ...
 
     @property
     def embedding_dim(self) -> int: ...
-
-    # ------------------------------------------------------------------
-    # Training
-    # ------------------------------------------------------------------
 
     def training_step(
         self,
@@ -64,12 +56,10 @@ class Encoder(Protocol):
         """
         ...
 
-    # ------------------------------------------------------------------
     # nn.Module surface used by trainers — every concrete encoder is an
     # nn.Module subclass, so these are satisfied automatically. Declared
     # here so trainer signatures can accept ``Encoder`` without losing
     # access to the methods they actually call.
-    # ------------------------------------------------------------------
 
     # Return ``Any`` so concrete encoders can return ``Self`` (the
     # nn.Module convention) without tripping covariance checks.

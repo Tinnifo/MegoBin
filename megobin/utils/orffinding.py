@@ -117,7 +117,7 @@ def run_fraggenescan(fasta_path: str, num_process: int, output: str):
 
 
 def run_orffinder(fasta_path, num_process, tdir, orf_finder, prodigal_output_faa):
-    """Run ORF finder (depending on the value of the orf_finder argument)."""
+    """Run the ORF finder selected by ``orf_finder`` and return the protein FASTA path."""
     if prodigal_output_faa is not None:
         oname = os.path.join(tdir, "orfs.faa")
         shutil.copyfile(prodigal_output_faa, oname)

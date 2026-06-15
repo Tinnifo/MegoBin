@@ -46,17 +46,9 @@ class TensorBoardLogger:
             "checkpoints": [],
         }
 
-    # ------------------------------------------------------------------
-    # Scalars
-    # ------------------------------------------------------------------
-
     def log_scalars(self, values: dict[str, float], step: int) -> None:
         for k, v in values.items():
             self.writer.add_scalar(k, v, global_step=step)
-
-    # ------------------------------------------------------------------
-    # Static metadata
-    # ------------------------------------------------------------------
 
     def log_config(self, config: dict[str, Any]) -> None:
         """Record the full config + repo provenance.
@@ -86,18 +78,10 @@ class TensorBoardLogger:
     def log_text(self, key: str, text: str) -> None:
         self.writer.add_text(key, text)
 
-    # ------------------------------------------------------------------
-    # Dataframes (best-effort: markdown table)
-    # ------------------------------------------------------------------
-
     def log_dataframe(self, key: str, df: pd.DataFrame) -> None:
         self.writer.add_text(key, df.to_markdown(index=False))
         for col in df.select_dtypes(include="number").columns:
             self.writer.add_histogram(f"{key}/{col}", df[col].to_numpy(), global_step=0)
-
-    # ------------------------------------------------------------------
-    # Checkpoints (local copy + run_meta.json pointer)
-    # ------------------------------------------------------------------
 
     def log_checkpoint(self, path: Path, name: str = "checkpoint") -> None:
         ckpt_dir = self.logdir / "checkpoints"
@@ -114,17 +98,8 @@ class TensorBoardLogger:
         self.writer.flush()
         self.writer.close()
 
-    # ------------------------------------------------------------------
-    # Internals
-    # ------------------------------------------------------------------
-
     def _write_meta(self) -> None:
         (self.logdir / "run_meta.json").write_text(json.dumps(self._meta, indent=2))
-
-
-# ---------------------------------------------------------------------------
-# Repo-provenance helpers
-# ---------------------------------------------------------------------------
 
 
 def _git_sha() -> str:

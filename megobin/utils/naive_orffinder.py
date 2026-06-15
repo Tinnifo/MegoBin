@@ -47,7 +47,6 @@ def translate(seq):
 
 
 def findall(seq, pats):
-    """Finds all the matches to the set of patterns given."""
     matches = []
     for pat in pats:
         next_start = seq.find(pat)
@@ -102,7 +101,6 @@ def find_orfs(seq, accept_incomplete=False):
 
 
 def extract(seq, orf):
-    """Extract ORF sequence."""
     seq = seq[orf.start : orf.end]
     if orf.rc:
         seq = reverse_complement(seq)

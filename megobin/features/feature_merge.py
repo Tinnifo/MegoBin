@@ -23,6 +23,13 @@ from megobin.utils.atomicwrite import atomic_write
 from megobin.utils.fasta import fasta_iter
 
 
+# SemiBin switches to combined (multi-sample) mode once at least this many
+# samples are present: coverage is embedded directly and must-link split
+# coverage is produced. The strobealign-aemb abundance input also requires
+# this many samples.
+COMBINED_MODE_MIN_SAMPLES = 5
+
+
 # Helper functions from: https://github.com/BigDataBiology/SemiBin/blob/main/SemiBin/utils.py
 @contextlib.contextmanager
 def possibly_compressed_write(filename):
@@ -61,7 +68,6 @@ def maybe_compute_min_length(min_length, fafile, ratio):
 Pool = mp.get_context("spawn").Pool
 
 
-# Function to generate sequence features for single-sample / co-assembly mode
 def generate_sequence_features_single(
     logger,
     contig_fasta,
@@ -79,7 +85,8 @@ def generate_sequence_features_single(
     (https://github.com/BigDataBiology/SemiBin/blob/main/SemiBin/main.py).
     A single assembly with bare contig names (no sample separator); BAM
     references match those bare names (``sep=None``). ``is_combined`` is
-    ``len(bams) >= 5`` — combined mode writes one coverage column per BAM,
+    ``len(bams) >= COMBINED_MODE_MIN_SAMPLES`` — combined mode writes one
+    coverage column per BAM,
     single-sample mode writes ``[mean, var]`` per BAM.
 
     data.csv has the (kmer + abundance) features for the original contigs;
@@ -108,7 +115,7 @@ def generate_sequence_features_single(
     data_split_cov = None
 
     if bams:
-        is_combined = len(bams) >= 5
+        is_combined = len(bams) >= COMBINED_MODE_MIN_SAMPLES
         logger.info("Calculating coverage for every BAM.")
         with Pool(min(max(num_process, 1), len(bams))) as pool:
             results = [
@@ -132,9 +139,10 @@ def generate_sequence_features_single(
         data_cov, data_split_cov = combine_cov(output, bams, is_combined)
 
     if abundances:
-        if len(abundances) < 5:
+        if len(abundances) < COMBINED_MODE_MIN_SAMPLES:
             raise ValueError(
-                "abundances (strobealign-aemb) require at least 5 samples."
+                f"abundances (strobealign-aemb) require at least "
+                f"{COMBINED_MODE_MIN_SAMPLES} samples."
             )
         logger.info("Reading abundance information from abundance files.")
         data_cov, data_split_cov = generate_cov_from_abundances(
@@ -174,12 +182,11 @@ def generate_sequence_features_single(
         data_split.to_csv(ofile)
 
 
-# Function to generate sequence features for multi-sample binning mode
 def generate_sequence_features_multi(logger, args):
     """
     Generate data.csv and data_split.csv for every sample of multi-sample binning mode.
-    data.csv has the features(kmer and abundance) for original contigs.
-    data_split.csv has the features(kmer and abundace) for contigs that are breaked up as must-link pair.
+    data.csv has the (kmer and abundance) features for the original contigs.
+    data_split.csv has them for the must-link split halves.
     """
     import pandas as pd
 
@@ -190,15 +197,14 @@ def generate_sequence_features_multi(logger, args):
         sys.exit(1)
 
     n_sample = len(args.bams) if args.bams else len(args.abundances)
-    if args.abundances and n_sample < 5:
+    if args.abundances and n_sample < COMBINED_MODE_MIN_SAMPLES:
         logger.error(
-            f"Error: abundances from strobealign-aemb can only be used when at least 5 samples are used.\n"
+            f"Error: abundances from strobealign-aemb can only be used when at least {COMBINED_MODE_MIN_SAMPLES} samples are used.\n"
         )
         sys.exit(1)
 
-    is_combined = n_sample >= 5
+    is_combined = n_sample >= COMBINED_MODE_MIN_SAMPLES
 
-    # Generate contig file for every sample
     sample_list = []
     contig_lengths = []
 
@@ -288,7 +294,6 @@ def generate_sequence_features_multi(logger, args):
                     )
                     sys.exit(1)
 
-        # Generate cov features for every sample
         data_cov, data_split_cov = combine_cov(
             os.path.join(args.output, "samples"), args.bams, is_combined
         )

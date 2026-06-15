@@ -596,7 +596,7 @@ def maybe_crams2bams(
     bams, contig_fasta: str, num_process: int, odir: str
 ):  # bams : list[str] is not available on Python 3.7
     """
-    maybe_crams2bams converts CRAM to BAM
+    Converts any CRAM inputs to BAM, passing BAM inputs through unchanged
 
     Parameters
     ----------

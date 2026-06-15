@@ -78,10 +78,6 @@ class SemiBin2Encoder(nn.Module):
             nn.Linear(hidden_dim, output_dim),
         )
 
-    # ------------------------------------------------------------------
-    # Forward / embedding (network only)
-    # ------------------------------------------------------------------
-
     def embedding(self, x: torch.Tensor) -> torch.Tensor:
         return self.encoder1(x)
 
@@ -97,10 +93,6 @@ class SemiBin2Encoder(nn.Module):
         if self.is_combined:
             return x
         return x[:, : self.kmer_dim]
-
-    # ------------------------------------------------------------------
-    # Inference: network embedding + long-read depth augmentation
-    # ------------------------------------------------------------------
 
     def encode(self, features: np.ndarray) -> np.ndarray:
         """(N, feature_dim) → (N, output_dim [+ n_sample] ) clustering coords."""
@@ -136,10 +128,6 @@ class SemiBin2Encoder(nn.Module):
         # single-sample mode after the log-depth concat); nothing downstream
         # reads this property (the binner uses embeddings.shape directly).
         return self._output_dim
-
-    # ------------------------------------------------------------------
-    # Training: self-supervised contrastive on (kmer | kmer+abundance) pairs
-    # ------------------------------------------------------------------
 
     def training_step(
         self,
