@@ -15,11 +15,11 @@ import pandas as pd
 import pytest
 import torch
 
-from megobin.binners.dbscan_ensemble import DBSCANEnsembleBinner
+from megobin.binners.semibin_2 import DBSCANEnsembleBinner
 from megobin.evaluators.checkm2 import CheckM2Evaluator
 from megobin.losses.hinge_contrastive import HingeContrastiveLoss
 from megobin.losses.mahalanobis_bce import MahalanobisBCELoss
-from megobin.encoders.uncertain_gen import UncertainGenEncoder
+from megobin.encoders.uncertaingen import UncertainGenEncoder
 
 
 # ---- Encoder ---------------------------------------------------------------

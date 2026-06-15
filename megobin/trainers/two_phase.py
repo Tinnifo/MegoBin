@@ -178,7 +178,10 @@ class TwoPhaseTrainer:
         )
 
         encoder.train()
+        resample = getattr(sampler, "set_epoch", None)
         for epoch in range(epochs):
+            if callable(resample):
+                resample(epoch)
             running = 0.0
             n_batches = 0
             for batch in loader:

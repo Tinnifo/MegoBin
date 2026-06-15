@@ -209,24 +209,53 @@ def main(cfg: DictConfig) -> None:
             "via feature_merge."
         )
 
-    # Mirror SemiBin's `norm_abundance` gate: when too few BAMs make abundance
-    # statistically uninformative, drop it so encoder inference dims match
-    # training dims (data_split.csv, which is kmer-only in single-sample mode).
+    # Encoders that reproduce SemiBin's long-read preprocessing consume the
+    # depth columns directly (``consumes_depth``) and slice k-mers internally,
+    # so the abundance-dropping gate below is skipped for them.
+    consumes_depth = getattr(encoder, "consumes_depth", False)
+    is_combined = getattr(encoder, "is_combined", False)
     kmer_dim = int(cfg.features.dims) if cfg.get("features") is not None else 136
     n_abund = features.shape[1] - kmer_dim
+    # Column-sum vector for SemiBin combined-mode normalisation; reused for
+    # data_split.csv so train/inference scaling stays identical. None otherwise.
+    combined_norm = None
     if n_abund > 0:
         from megobin.utils.SemiBin_utils import norm_abundance
 
-        if norm_abundance(features):
-            log.info("norm_abundance gate: keeping %d abundance cols", n_abund)
-        else:
-            log.warning(
-                "norm_abundance gate: %d abundance cols below threshold — "
-                "dropping abundance to match data_split.csv (kmer-only). "
-                "Re-run feature_merge in multi-sample mode (≥5 BAMs) to use abundance.",
+        if not consumes_depth:
+            # Mirror SemiBin's `norm_abundance` gate: drop abundance when too
+            # few BAMs make it uninformative, so encoder inference dims match
+            # training dims (data_split.csv, kmer-only in single-sample mode).
+            if norm_abundance(features):
+                log.info("norm_abundance gate: keeping %d abundance cols", n_abund)
+            else:
+                log.warning(
+                    "norm_abundance gate: %d abundance cols below threshold — "
+                    "dropping abundance to match data_split.csv (kmer-only). "
+                    "Re-run feature_merge in multi-sample mode (≥5 BAMs).",
+                    n_abund,
+                )
+                features = features[:, :kmer_dim]
+        elif is_combined and norm_abundance(features):
+            # SemiBin combined mode (train_self / cluster_long_read): normalise
+            # the whole feature matrix ONCE by column sums, then L1 row-norm.
+            # The same `combined_norm` is reused for data_split.csv below.
+            from sklearn.preprocessing import normalize
+
+            combined_norm = features.sum(axis=0)
+            features = normalize(
+                features / combined_norm, axis=1, norm="l1"
+            ).astype(np.float32)
+            log.info(
+                "combined-mode abundance normalisation applied (%d abundance cols)",
                 n_abund,
             )
-            features = features[:, :kmer_dim]
+        else:
+            log.info(
+                "depth-consuming encoder: passing full feature matrix "
+                "(%d abundance cols) to encode()",
+                n_abund,
+            )
 
     # ---- Logger ----
     logger_cfg = cfg.get("logger")
@@ -254,6 +283,15 @@ def main(cfg: DictConfig) -> None:
             log.info("Trainer:        %s", type(trainer).__name__)
 
             sampler_inputs = _load_sampler_inputs(dataset_path, features)
+            if combined_norm is not None and "features_split" in sampler_inputs:
+                # Apply SemiBin's combined-mode normalisation to data_split.csv
+                # using the SAME column sums as data.csv (mirrors train_self).
+                from sklearn.preprocessing import normalize
+
+                fs = sampler_inputs["features_split"]
+                sampler_inputs["features_split"] = normalize(
+                    fs / combined_norm, axis=1, norm="l1"
+                ).astype(np.float32)
             sampler = _instantiate_sampler(sampler_cfg, sampler_inputs)
             log.info(
                 "Sampler:        %s (size=%d)", type(sampler).__name__, len(sampler)
@@ -290,12 +328,32 @@ def main(cfg: DictConfig) -> None:
             type(filter_obj).__name__,
         )
 
+    # ---- Contig lengths (DBSCAN length-weighting + minfasta bin sizing) ----
+    fasta_path = dataset_path / "contigs.fasta"
+    name_to_seq: dict[str, str] = {}
+    if fasta_path.exists():
+        from megobin.utils.fasta import fasta_iter
+
+        name_to_seq = dict(fasta_iter(str(fasta_path)))
+
+    contig_lengths = None
+    if name_to_seq and kept_names is not None:
+        lens = [len(name_to_seq.get(str(name), "")) for name in kept_names]
+        if all(ell > 0 for ell in lens):
+            contig_lengths = np.asarray(lens)
+        else:
+            log.warning(
+                "Some contigs missing from %s — DBSCAN length-weighting disabled.",
+                fasta_path,
+            )
+
     # ---- Binner (instantiated post-filter so contig_names aligns) ----
     binner = _instantiate_binner(
         cfg.binner,
         {
-            "contig_fasta": str(dataset_path / "contigs.fasta"),
+            "contig_fasta": str(fasta_path),
             "contig_names": kept_names,
+            "contig_lengths": contig_lengths,
             "output_dir": str(Path.cwd() / "markers"),
         },
     )
@@ -303,29 +361,25 @@ def main(cfg: DictConfig) -> None:
 
     # ---- Cluster ----
     labels = binner.cluster(embeddings)
-    n_bins = len(np.unique(labels))
+    n_bins = len(np.unique(labels[labels >= 0]))
     log.info("Bins: %d", n_bins)
 
-    # ---- Write bins as FASTA for evaluator ----
+    # ---- Write bins as FASTA for evaluator (label -1 = unbinned, skipped) ----
     bins_dir = Path("bins")
     bins_dir.mkdir(exist_ok=True)
 
-    if kept_names is not None:
-        fasta_path = dataset_path / "contigs.fasta"
-        if fasta_path.exists():
-            from megobin.utils.fasta import fasta_iter
+    if kept_names is not None and name_to_seq:
+        for bin_id in np.unique(labels):
+            if bin_id < 0:
+                continue
+            members = kept_names[labels == bin_id]
+            with open(bins_dir / f"bin_{bin_id:04d}.fasta", "w") as f:
+                for name in members:
+                    seq = name_to_seq.get(str(name), "")
+                    if seq:
+                        f.write(f">{name}\n{seq}\n")
 
-            name_to_seq = dict(fasta_iter(str(fasta_path)))
-
-            for bin_id in np.unique(labels):
-                members = kept_names[labels == bin_id]
-                with open(bins_dir / f"bin_{bin_id:04d}.fasta", "w") as f:
-                    for name in members:
-                        seq = name_to_seq.get(str(name), "")
-                        if seq:
-                            f.write(f">{name}\n{seq}\n")
-
-            log.info("Wrote %d bin FASTA files to %s", n_bins, bins_dir)
+        log.info("Wrote %d bin FASTA files to %s", n_bins, bins_dir)
 
     # ---- Evaluate ----
     try:

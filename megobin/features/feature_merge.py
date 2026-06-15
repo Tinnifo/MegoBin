@@ -61,6 +61,119 @@ def maybe_compute_min_length(min_length, fafile, ratio):
 Pool = mp.get_context("spawn").Pool
 
 
+# Function to generate sequence features for single-sample / co-assembly mode
+def generate_sequence_features_single(
+    logger,
+    contig_fasta,
+    bams,
+    binned_length,
+    must_link_threshold,
+    num_process,
+    output,
+    abundances=None,
+    only_kmer=False,
+):
+    """Generate data.csv and data_split.csv for single-sample binning.
+
+    Ported from SemiBin's ``generate_sequence_features_single``
+    (https://github.com/BigDataBiology/SemiBin/blob/main/SemiBin/main.py).
+    A single assembly with bare contig names (no sample separator); BAM
+    references match those bare names (``sep=None``). ``is_combined`` is
+    ``len(bams) >= 5`` — combined mode writes one coverage column per BAM,
+    single-sample mode writes ``[mean, var]`` per BAM.
+
+    data.csv has the (kmer + abundance) features for the original contigs;
+    data_split.csv has them for the must-link split halves.
+    """
+    import pandas as pd
+
+    if bams is None and abundances is None and not only_kmer:
+        raise ValueError(
+            "Need BAM files or abundance files to calculate coverage features."
+        )
+
+    logger.debug("Generating kmer features from fasta file.")
+    kmer_whole = generate_kmer_features_from_fasta(contig_fasta, binned_length, 4)
+    if only_kmer:
+        with atomic_write(os.path.join(output, "data.csv"), overwrite=True) as ofile:
+            kmer_whole.to_csv(ofile)
+        return
+
+    kmer_split = generate_kmer_features_from_fasta(
+        contig_fasta, 1000, 4, split=True, split_threshold=must_link_threshold
+    )
+
+    is_combined = False
+    data_cov = None
+    data_split_cov = None
+
+    if bams:
+        is_combined = len(bams) >= 5
+        logger.info("Calculating coverage for every BAM.")
+        with Pool(min(max(num_process, 1), len(bams))) as pool:
+            results = [
+                pool.apply_async(
+                    generate_cov,
+                    args=(
+                        bam_file,
+                        bam_index,
+                        output,
+                        must_link_threshold,
+                        is_combined,
+                        binned_length,
+                        logger,
+                        None,
+                    ),
+                )
+                for bam_index, bam_file in enumerate(bams)
+            ]
+            for r in results:
+                logger.info(f"Processed: {r.get()}")
+        data_cov, data_split_cov = combine_cov(output, bams, is_combined)
+
+    if abundances:
+        if len(abundances) < 5:
+            raise ValueError(
+                "abundances (strobealign-aemb) require at least 5 samples."
+            )
+        logger.info("Reading abundance information from abundance files.")
+        data_cov, data_split_cov = generate_cov_from_abundances(
+            abundances, output, contig_fasta, binned_length
+        )
+        is_combined = True
+
+    if is_combined:
+        data_split = pd.merge(
+            kmer_split,
+            data_split_cov,
+            how="inner",
+            on=None,
+            left_index=True,
+            right_index=True,
+            sort=False,
+            copy=True,
+        )
+    else:
+        data_split = kmer_split
+
+    kmer_whole.index = kmer_whole.index.astype(str)
+    data = pd.merge(
+        kmer_whole,
+        data_cov,
+        how="inner",
+        on=None,
+        left_index=True,
+        right_index=True,
+        sort=False,
+        copy=True,
+    )
+
+    with atomic_write(os.path.join(output, "data.csv"), overwrite=True) as ofile:
+        data.to_csv(ofile)
+    with atomic_write(os.path.join(output, "data_split.csv"), overwrite=True) as ofile:
+        data_split.to_csv(ofile)
+
+
 # Function to generate sequence features for multi-sample binning mode
 def generate_sequence_features_multi(logger, args):
     """

@@ -1,0 +1,8 @@
+# Small NCBI nuccore accessions for the real-genome fidelity fixture.
+# Reduced/small genomes that still retain ribosomal-protein single-copy markers,
+# so SemiBin's marker-F1 selection has signal. One genome per line; '#' comments.
+# Downloaded FASTA is git-ignored (large); regenerate with:
+#   python -m megobin.fidelity.download_fixture
+NC_000908.2  Mycoplasma genitalium G37
+NC_018495.1  Mycoplasma pneumoniae
+NC_004432.1  Mycoplasma penetrans HF-2
