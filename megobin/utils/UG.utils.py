@@ -16,15 +16,9 @@ from sklearn.preprocessing import normalize
 from src.model import Model
 from scipy.optimize import linear_sum_assignment
 
-# # Here, we define the batch sizes for inference. It might be important for the memory requirements of the model.
-# MODEL2BATCH_SIZE = {
-#     "tnf": 100, "tnf_k": 100, "hyenadna": 100, "dnabert2": 20, "nt": 64, "dnaberts": 20,
-# }
-
 
 def clean_by_variance(dna_sequences, model_path, filter_ratio):
 
-    # If filter ratio is less than 0, then randomly select the sequences
     if filter_ratio < 0:
         print(
             f"Filter ratio {filter_ratio} is negative, so randomly select the sequences!"
@@ -36,14 +30,12 @@ def clean_by_variance(dna_sequences, model_path, filter_ratio):
         )
         return chosen_indices
 
-    # Filter the sequences that have the largest minimum covariances
     kwargs, model_state_dict = torch.load(model_path, map_location=torch.device("cpu"))
     model = Model(**kwargs)
     model.load_state_dict(model_state_dict)
-    # Get the mean and stds
     _, covs = model.seq2emb(dna_sequences)
 
-    # Get the sorted indices of the stds
+    # Drop the sequences whose per-dimension maximum covariance is largest
     sorted_idx = np.argsort(np.max(covs, axis=1))
     selected_idx = sorted_idx[: int((1 - filter_ratio) * len(covs))]
     print(
@@ -55,7 +47,6 @@ def clean_by_variance(dna_sequences, model_path, filter_ratio):
 
 def convert_labels2int(labels):
 
-    # Convert the sequence labels to numeric values
     label2id = {l: i for i, l in enumerate(set(labels))}
     int_labels = np.array([label2id[l] for l in labels])
 
@@ -74,17 +65,15 @@ def filter_sequences(data_path, shorten, min_len=0, abundance=0):
     labels = [d[1] for d in data]
 
     if shorten:
-        # Shorten the sequences if they are longer than the MAX_SEQ_LEN value
         dna_sequences = [seq[:shorten] for seq in dna_sequences]
 
     if min_len:
-        # Filter sequences with length 'min_len'
         filterd_idx = [i for i, seq in enumerate(dna_sequences) if len(seq) >= min_len]
         dna_sequences = [dna_sequences[i] for i in filterd_idx]
         labels = [labels[i] for i in filterd_idx]
 
     if abundance:
-        # Filter sequences with low abundance labels (less than 'abundance')
+        # Keep only sequences whose label occurs at least 'abundance' times
         label_counts = collections.Counter(labels)
         filterd_idx = [i for i, l in enumerate(labels) if label_counts[l] >= abundance]
         dna_sequences = [dna_sequences[i] for i in filterd_idx]
@@ -113,19 +102,15 @@ def get_embedding(
 ):
     """
     Get the embeddings (and covariances depending on the method) of the DNA sequences using the specified model.
-
     """
 
-    # Define the batch size to get the embeddings
-    # This is for inference only, not training and it is important for the memory requirements
-    batch_size = 256  # MODEL2BATCH_SIZE[model_name]
+    # Inference-only batch size; affects memory footprint, not model behavior.
+    batch_size = 256
 
-    # Load the embedding file if it exits
     if os.path.exists(embedding_file_path):
         print(f"\t- Load embeddings from file {embedding_file_path}")
         output = np.load(embedding_file_path)
         if output.ndim == 3:
-            # If the output is a tuple of embedding and covariances
             output = (output[0], output[1])
 
     else:
@@ -195,11 +180,8 @@ def get_embedding(
         else:
             raise ValueError(f"Unknown model {model_name}")
 
-        # Save the embedding file if a valid path is provided
         if embedding_file_path != "":
-            # Get the directory of the embedding file
             embedding_file_dir = os.path.dirname(embedding_file_path)
-            # Save the embedding file
             os.makedirs(embedding_file_dir, exist_ok=True)
             with open(embedding_file_path, "wb") as f:
                 np.save(f, output)
@@ -211,7 +193,7 @@ def compute_class_center_medium_similarity(
     features, labels, metric="dot", chunk_size=512
 ):
 
-    # Sort the embeddings (and covariances if exists) by labels
+    # Sorting by label groups each class into a contiguous block of rows.
     idx = np.argsort(labels)
     labels = labels[idx]
     if isinstance(features, tuple):
@@ -219,32 +201,24 @@ def compute_class_center_medium_similarity(
     else:
         embeddings, covs = features[idx], None
 
-    # Get the counts of samples per class, i.e. the number of samples per class
     n_sample_per_class = np.bincount(labels)
 
-    # We will compute the similarities between the class centers and the samples. Each entry in the all_similarities
-    # array will store the similarity between the corresponding embedding and its class center it belongs to.
+    # Each entry holds the similarity between an embedding and the center of its own class.
     all_similarities = np.zeros(len(embeddings))
 
-    # Iterate over each class
     count = 0
     for i in range(len(n_sample_per_class)):
-        # Get the start and end indices of the embeddings located at the class i
         start = count
         end = count + n_sample_per_class[i]
 
-        # Get the mean of the embedding vectors located at the start:end indices
+        # Class center is the mean embedding; compare every member against it.
         features1 = np.mean(embeddings[start:end], axis=0, keepdims=True)
-        # Define the second set of features as the embeddings located at the start:end indices
         features2 = embeddings[start:end]
 
-        # If covariances are provided, we also need to get the mean of the covariances
         if covs is not None:
-            # features1 = (features1, np.mean(covs[start:end], axis=0, keepdims=True))
             features1 = (features1, 1e0 * np.ones_like(features1))
             features2 = (features2, covs[start:end])
 
-        # Compute the similarity matrix between the two sets of features
         similarities = compute_similarity_matrix(
             features1=features1,
             features2=features2,
@@ -252,7 +226,6 @@ def compute_class_center_medium_similarity(
             chunk_size=chunk_size,
         ).reshape(-1)
 
-        # Store the similarities in the all_similarities array
         all_similarities[start:end] = similarities
 
         count += n_sample_per_class[i]
@@ -276,17 +249,15 @@ def KMedoid(
     chunk_size=512,
 ):
 
-    # Compute the similarities between the features
     similarities = compute_similarity_matrix(
         features, metric=metric, chunk_size=chunk_size
     )
 
-    # Normalization might be important if similarities include negative values
-    small_number = 0  # similarities.min()
+    # Shifting by a floor matters when similarities can be negative.
+    small_number = 0
     similarities = similarities - small_number
     min_similarity = min_similarity - small_number
 
-    # Set the values below min_similarity to 0
     similarities[similarities < min_similarity] = 0
 
     if isinstance(features, tuple):
@@ -299,12 +270,10 @@ def KMedoid(
     while np.any(p == -1):
         if iter_count == max_iter:
             break
-        # print(f"Iteration {iter_count} with {np.sum(p == -1)} unassigned elements")
 
         # Select the seed index, i.e. medoid index (Line 4)
         s = np.argmax(row_sum)
         # Initialize the current medoid (Line 4)
-        # current_medoid = (features[0][s], features[1][s]) if isinstance(features, tuple) else features[s]
         current_medoid = (
             (features[0][s], 1e0 * np.ones_like(features[1][s]))
             if isinstance(features, tuple)
@@ -314,7 +283,6 @@ def KMedoid(
         selected_idx = None
         # Optimize the current medoid (Line 5-8)
         for t in range(3):
-            # For the current medoid, find its similarities
             if isinstance(features, tuple):
                 features2 = (
                     np.expand_dims(current_medoid[0], axis=0),
@@ -330,15 +298,11 @@ def KMedoid(
             ).squeeze()
             similarity = similarity - small_number
 
-            # Determine the indices that are within the similarity threshold
             idx_within = similarity >= min_similarity
-            # Determine the available indices, i.e. the indices that have not been assigned to a cluster yet
+            # p == -1 marks elements not yet assigned to any cluster.
             idx_available = p == -1
-            # Get the indices that are both within the similarity threshold and available
             selected_idx = np.where(np.logical_and(idx_within, idx_available))[0]
-            # Determine the new k-medoid
             if isinstance(features, tuple):
-                # current_medoid = (np.mean(features[0][selected_idx], axis=0), np.mean(features[1][selected_idx], axis=0))
                 current_medoid = (
                     np.mean(features[0][selected_idx], axis=0),
                     1e0 * np.ones(shape=(1, features[1].shape[1])),
@@ -351,13 +315,12 @@ def KMedoid(
             p[selected_idx] = iter_count
             row_sum -= np.sum(similarities[:, selected_idx], axis=1)
             row_sum[selected_idx] = 0
-            # print(f"Current label: {iter_count}, Number of assigned elements: {len(selected_idx)}")
         else:
             raise ValueError("No selected index")
 
         iter_count += 1
 
-    # remove bins that are too small
+    # Discard bins smaller than min_bin_size (marked unassigned again).
     unique, counts = np.unique(p, return_counts=True)
     for label, count in zip(unique, counts):
         if count < min_bin_size:
@@ -367,17 +330,15 @@ def KMedoid(
 
 
 def calculate_tnf(dna_sequences, kernel=False, k=4):
-    # Define all possible tetra-nucleotides
     nucleotides = ["A", "T", "C", "G"]
 
+    # Every possible k-mer over {A,T,C,G}; one embedding dimension per k-mer.
     multi_nucleotides = [
         "".join(kmer) for kmer in itertools.product(nucleotides, repeat=k)
     ]
 
-    # build mapping from multi-nucleotide to index
     tnf_index = {tn: i for i, tn in enumerate(multi_nucleotides)}
 
-    # Iterate over each sequence and update counts
     embedding = np.zeros((len(dna_sequences), len(multi_nucleotides)))
     for j, seq in enumerate(dna_sequences):
         for i in range(len(seq) - k + 1):
@@ -394,7 +355,7 @@ def calculate_llm_embedding(
     dna_sequences, model_name_or_path, model_max_length=400, batch_size=20
 ):
 
-    # reorder the sequences by length
+    # Sort by length so each batch has similar lengths and wastes less padding.
     lengths = [len(seq) for seq in dna_sequences]
     idx = np.argsort(lengths)
     dna_sequences = [dna_sequences[i] for i in idx]
@@ -487,7 +448,7 @@ def calculate_llm_embedding(
 
     embeddings = np.array(embeddings.detach().cpu())
 
-    # reorder the embeddings
+    # Undo the length sort, restoring the caller's original order.
     embeddings = embeddings[np.argsort(idx)]
 
     return embeddings
@@ -509,17 +470,14 @@ def align_labels_via_hungarian_algorithm(true_labels, predicted_labels):
         np.array(predicted_labels, dtype=int),
     )
 
-    # Create a confusion matrix
     max_label = max(max(true_labels), max(predicted_labels)) + 1
     confusion_matrix = np.zeros((max_label, max_label), dtype=int)
 
     for true_label, predicted_label in zip(true_labels, predicted_labels):
         confusion_matrix[true_label, predicted_label] += 1
 
-    # Apply the Hungarian algorithm
     row_ind, col_ind = linear_sum_assignment(confusion_matrix, maximize=True)
 
-    # Create a mapping from predicted labels to true labels
     label_mapping = {
         predicted_label: true_label
         for true_label, predicted_label in zip(row_ind, col_ind)

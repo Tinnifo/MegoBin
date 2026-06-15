@@ -46,7 +46,6 @@ class CheckM2Evaluator:
 
         df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 
-        # Ensure expected columns exist
         for col in ("completeness", "contamination"):
             if col not in df.columns:
                 raise KeyError(

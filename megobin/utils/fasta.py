@@ -9,22 +9,25 @@ def fasta_iter(
     fname: Union[str, TextIO],
     full_header: bool = False,
 ) -> Iterator[Tuple[str, str]]:
-    """Iterate over a (possibly gzipped) FASTA file
+    """Iterate over a (possibly compressed) FASTA file or open handle.
 
     Parameters
     ----------
-    fname : str
-        Filename.
-            If it ends with .gz, gzip format is assumed
-            If .bz2 then bzip2 format is assumed
-            if .xz, then lzma format is assumerd
+    fname : str or file-like object
+        Either a path to the FASTA file or an already-open text handle.
+        When a path is given, the compression is inferred from its suffix:
+        ``.gz`` -> gzip, ``.bz2`` -> bzip2, ``.xz`` -> lzma; otherwise the
+        file is read as plain text. When a file-like object (anything with a
+        ``readline`` method) is given, it is read as-is and no compression
+        handling is applied.
     full_header : boolean (optional)
         If True, yields the full header. Otherwise (the default), only the
         first word
 
     Yields
     ------
-    (h,seq): tuple of (str, str)
+    (h, seq) : tuple of (str, str)
+        The header (see ``full_header``) and the concatenated sequence.
     """
     header = None
     chunks = []

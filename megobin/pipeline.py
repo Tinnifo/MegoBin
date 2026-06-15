@@ -159,10 +159,9 @@ def main(cfg: DictConfig) -> None:
 
     seed_everything(cfg.seed)
 
-    # ---- Capability check (runs before any I/O) ----
+    # Runs before any I/O so a capability mismatch aborts cheaply.
     _check_signal_compatibility(cfg)
 
-    # ---- Instantiate components from config ----
     # Binner is instantiated later (after encode + filter) so marker-aware
     # binners like DBSCANEnsembleBinner receive the post-filter contig
     # names that align with the embeddings handed to ``cluster``.
@@ -184,7 +183,6 @@ def main(cfg: DictConfig) -> None:
     log.info("Evaluator:      %s", type(evaluator).__name__)
     log.info("Filter:         %s", type(filter_obj).__name__)
 
-    # ---- Feature loading ----
     # `cfg.dataset` is a capability descriptor dict (see configs/dataset/).
     # Legacy scalar `dataset: <name>` is still supported via `data_dir`.
     if hasattr(cfg.dataset, "path"):
@@ -257,7 +255,6 @@ def main(cfg: DictConfig) -> None:
                 n_abund,
             )
 
-    # ---- Logger ----
     logger_cfg = cfg.get("logger")
     experiment_logger: Logger | None = (
         hydra.utils.instantiate(logger_cfg) if logger_cfg is not None else None
@@ -267,7 +264,6 @@ def main(cfg: DictConfig) -> None:
         config_dict = cast(dict, OmegaConf.to_container(cfg, resolve=True))
         experiment_logger.log_config(config_dict)
 
-    # ---- Load checkpoint OR train ----
     resume_from = cfg.get("resume_from")
     if resume_from:
         log.info("resume_from set — skipping training, loading %s", resume_from)
@@ -304,7 +300,6 @@ def main(cfg: DictConfig) -> None:
                 "(encoder will run with its current weights)."
             )
 
-    # ---- Encode (+ optional uncertainty side-output) ----
     side_outputs: dict[str, np.ndarray] | None = None
     if hasattr(encoder, "encode_with_uncertainty"):
         embeddings, covariance = encoder.encode_with_uncertainty(features)
@@ -316,7 +311,6 @@ def main(cfg: DictConfig) -> None:
         embeddings = encoder.encode(features)
         log.info("Embeddings: %s", embeddings.shape)
 
-    # ---- Filter ----
     embeddings, kept_names, dropped_names = filter_obj.fit_transform(
         embeddings, contig_names, side_outputs
     )
@@ -328,7 +322,7 @@ def main(cfg: DictConfig) -> None:
             type(filter_obj).__name__,
         )
 
-    # ---- Contig lengths (DBSCAN length-weighting + minfasta bin sizing) ----
+    # Contig lengths feed DBSCAN length-weighting and minfasta bin sizing.
     fasta_path = dataset_path / "contigs.fasta"
     name_to_seq: dict[str, str] = {}
     if fasta_path.exists():
@@ -347,7 +341,7 @@ def main(cfg: DictConfig) -> None:
                 fasta_path,
             )
 
-    # ---- Binner (instantiated post-filter so contig_names aligns) ----
+    # Instantiated post-filter so contig_names aligns with the embeddings.
     binner = _instantiate_binner(
         cfg.binner,
         {
@@ -359,12 +353,11 @@ def main(cfg: DictConfig) -> None:
     )
     log.info("Binner:         %s", type(binner).__name__)
 
-    # ---- Cluster ----
     labels = binner.cluster(embeddings)
     n_bins = len(np.unique(labels[labels >= 0]))
     log.info("Bins: %d", n_bins)
 
-    # ---- Write bins as FASTA for evaluator (label -1 = unbinned, skipped) ----
+    # Write bins as FASTA for the evaluator; label -1 is unbinned and skipped.
     bins_dir = Path("bins")
     bins_dir.mkdir(exist_ok=True)
 
@@ -381,7 +374,6 @@ def main(cfg: DictConfig) -> None:
 
         log.info("Wrote %d bin FASTA files to %s", n_bins, bins_dir)
 
-    # ---- Evaluate ----
     try:
         scores = evaluator.score(bins_dir)
         log.info("CheckM2 results:\n%s", scores.to_string())

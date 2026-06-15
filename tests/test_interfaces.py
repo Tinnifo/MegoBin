@@ -22,9 +22,6 @@ from megobin.losses.mahalanobis_bce import MahalanobisBCELoss
 from megobin.encoders.uncertaingen import UncertainGenEncoder
 
 
-# ---- Encoder ---------------------------------------------------------------
-
-
 class TestUncertainGenTrainingContract:
     def setup_method(self):
         self.model = UncertainGenEncoder(
@@ -63,9 +60,6 @@ class TestUncertainGenTrainingContract:
         )
         assert loss.shape == ()
         loss.backward()
-
-
-# ---- ContrastiveLoss -------------------------------------------------------
 
 
 class TestHingeContrastiveLoss:
@@ -118,9 +112,6 @@ class TestMahalanobisBCELoss:
         assert loss.shape == ()
 
 
-# ---- Binner ----------------------------------------------------------------
-
-
 def _make_dbscan_binner(n: int) -> DBSCANEnsembleBinner:
     names = np.array([f"c{i}" for i in range(n)])
     # Half the contigs share marker "g0", the rest "g1" — gives the
@@ -150,9 +141,6 @@ class TestDBSCANEnsembleBinner:
         labels = binner.cluster(np.random.randn(30, 8))
         assert len(labels) == 30
         assert (labels >= 0).all()
-
-
-# ---- Evaluator -------------------------------------------------------------
 
 
 class TestCheckM2Evaluator:

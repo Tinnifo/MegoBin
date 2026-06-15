@@ -84,10 +84,6 @@ class DBSCANEnsembleBinner:
         self._logger = logging.getLogger(__name__)
         self._marker_per_row_cache: list[list[str]] | None = None
 
-    # ------------------------------------------------------------------
-    # Marker resolution
-    # ------------------------------------------------------------------
-
     def _resolve_markers(self, n_rows: int) -> list[list[str]]:
         """Return a list of marker-id lists, one per embedding row.
 
@@ -176,10 +172,6 @@ class DBSCANEnsembleBinner:
             c2m = {}
         return [list(c2m.get(str(name), [])) for name in self.contig_names]
 
-    # ------------------------------------------------------------------
-    # DBSCAN sweep
-    # ------------------------------------------------------------------
-
     def _dbscan_sweep(self, embeddings: np.ndarray) -> list[np.ndarray]:
         n = embeddings.shape[0]
         k = min(self.k_neighbours, max(n - 1, 1))
@@ -208,17 +200,16 @@ class DBSCANEnsembleBinner:
             results.append(np.asarray(labels))
         return results
 
-    # ------------------------------------------------------------------
-    # Marker-F1 bin selection (port of SemiBin's get_best_bin to indices)
-    # ------------------------------------------------------------------
-
     def _select_best_bin(
         self,
         results: list[np.ndarray],
         marker_per_row: list[list[str]],
         weights: np.ndarray,
     ) -> list[int] | None:
-        """Pick the highest-F1 bin across the eps sweep, relaxing contamination."""
+        """Pick the highest-F1 bin across the eps sweep, relaxing contamination.
+
+        Port of SemiBin's ``get_best_bin`` working on embedding-row indices.
+        """
         for max_contamination in (0.1, 0.2, 0.3, 0.4, 0.5, 1.0):
             max_f1 = 0.0
             weight_of_max = float("inf")
@@ -257,10 +248,6 @@ class DBSCANEnsembleBinner:
             if max_f1 > 0 and best_bin is not None:
                 return best_bin
         return None
-
-    # ------------------------------------------------------------------
-    # Binner protocol
-    # ------------------------------------------------------------------
 
     def cluster(self, embeddings: np.ndarray) -> np.ndarray:
         """(N, d) → (N,) integer bin assignments.

@@ -1,4 +1,4 @@
-# This script has been adapted from the file available at the following address:
+# Adapted from SemiBin:
 # https://github.com/BigDataBiology/SemiBin/blob/main/SemiBin/utils.py
 
 
@@ -94,8 +94,7 @@ def get_marker(
             vs = vs.sort_values()
             median = vs.iloc[len(vs) // 2]
 
-            # the original version broke ties by picking the shortest query, so we
-            # replicate that here:
+            # SemiBin broke ties by picking the shortest query; replicate that here.
             candidates = vs.index[vs == median]
             c = qlen.loc[candidates].idxmin()
             r = list(sel.query("gene == @c")["contig"])
@@ -126,9 +125,10 @@ def estimate_seeds(
     orf_finder: str = "prodigal",
     prodigal_output_faa=None,
 ):
-    """Estimate number of bins from a FASTA file
+    """Estimate number of bins from a FASTA file.
 
     Parameters
+    ----------
     fasta_path: path
     binned_length: int (minimal contig length)
     num_process: int (number of CPUs to use)
@@ -136,6 +136,7 @@ def estimate_seeds(
 
     Returns
     -------
+    The result of :func:`get_marker` for the computed HMM output.
     """
     import logging
     from .orffinding import run_orffinder

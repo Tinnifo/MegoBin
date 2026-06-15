@@ -17,13 +17,47 @@ def calculate_coverage(
     sep=None,
     sample_contig_threshold=None,
 ):
-    """
-    depth_stream : an iterable like the output of bedtools genomecov
-    bam_file : str filename
-    must_link_threshold : int
-    edge : int
-    is_combined : bool
+    """Compute per-contig coverage from a depth stream.
 
+    Parameters
+    ----------
+    depth_stream : iterable of str
+        Per-base depth lines as produced by ``bedtools genomecov -bga``
+        (tab-separated ``contig``, ``start``, ``end``, ``depth``), in contig
+        order so consecutive lines for one contig are grouped together.
+    bam_file : str
+        Source BAM filename; used to name the output coverage columns and in
+        error messages.
+    must_link_threshold : int
+        Minimum contig length for must-link splitting. In combined mode a
+        contig at least this long has its edge-trimmed depth profile split at
+        the midpoint into ``_1``/``_2`` halves whose coverages are reported
+        separately.
+    edge : int, optional
+        Number of bases trimmed from each end of a contig's depth profile
+        before the mean/variance are computed (default 75).
+    is_combined : bool, optional
+        If True, also emit must-link split coverage and return
+        ``(contig_cov, split_contig_cov)``. If False (default), return the
+        per-contig mean and variance as ``(contig_cov, None)``.
+    contig_threshold : int, optional
+        Minimum contig length to keep in single-sample mode, i.e. when
+        ``sep is None`` (default 1000). Shorter contigs are skipped.
+    sep : str or None, optional
+        Separator between sample and contig name for multi-sample mode. When
+        set, each contig name is split on it and the per-sample length cutoff
+        from ``sample_contig_threshold`` is used instead of
+        ``contig_threshold``.
+    sample_contig_threshold : dict or None, optional
+        Maps sample name to its minimum contig length. Required, and only
+        used, when ``sep`` is not None.
+
+    Returns
+    -------
+    tuple of (pandas.DataFrame, pandas.DataFrame or None)
+        When ``is_combined``: a per-contig mean-coverage frame and a must-link
+        split-half coverage frame. Otherwise: a per-contig mean/variance frame
+        and ``None``.
     """
     import pandas as pd
     import numpy as np

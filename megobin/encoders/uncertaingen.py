@@ -63,19 +63,11 @@ class UncertainGenEncoder(nn.Module):
             nn.Linear(hidden_dim, embedding_dim),
         )
 
-    # ------------------------------------------------------------------
-    # Forward
-    # ------------------------------------------------------------------
-
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """(batch, input_dim) → (μ, cov) with cov = exp(log_cov)."""
         mu = self.mean(x)
         cov = torch.exp(self.cov(x))
         return mu, cov
-
-    # ------------------------------------------------------------------
-    # Inference
-    # ------------------------------------------------------------------
 
     def _maybe_normalize(self, mu: torch.Tensor) -> torch.Tensor:
         if self.output_normalize:
@@ -105,10 +97,6 @@ class UncertainGenEncoder(nn.Module):
     @property
     def embedding_dim(self) -> int:
         return self._embedding_dim
-
-    # ------------------------------------------------------------------
-    # Training
-    # ------------------------------------------------------------------
 
     def training_step(
         self,
