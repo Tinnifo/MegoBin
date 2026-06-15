@@ -32,11 +32,22 @@ class DBSCANEnsembleBinner:
     def __init__(
         self,
         eps_values=(
-            0.01, 0.05, 0.1, 0.15, 0.2, 0.25,
-            0.3, 0.35, 0.4, 0.45, 0.5, 0.55,
+            0.01,
+            0.05,
+            0.1,
+            0.15,
+            0.2,
+            0.25,
+            0.3,
+            0.35,
+            0.4,
+            0.45,
+            0.5,
+            0.55,
         ),
         min_samples: int = 5,
         min_bin_size: int = 1,
+        minfasta: int = 0,
         k_neighbours: int = 200,
         n_jobs: int = -1,
         n_total_markers: int = 107,
@@ -53,23 +64,18 @@ class DBSCANEnsembleBinner:
         self.eps_values = list(eps_values)
         self.min_samples = min_samples
         self.min_bin_size = min_bin_size
+        self.minfasta = minfasta
         self.k_neighbours = k_neighbours
         self.n_jobs = n_jobs
         self.n_total_markers = n_total_markers
 
-        self.contig_fasta = (
-            None if contig_fasta is None else os.fspath(contig_fasta)
-        )
-        self.contig_names = (
-            None if contig_names is None else np.asarray(contig_names)
-        )
+        self.contig_fasta = None if contig_fasta is None else os.fspath(contig_fasta)
+        self.contig_names = None if contig_names is None else np.asarray(contig_names)
         self.contig_lengths = (
             None if contig_lengths is None else np.asarray(contig_lengths)
         )
         self.contig_to_marker = contig_to_marker
-        self.output_dir = (
-            None if output_dir is None else os.fspath(output_dir)
-        )
+        self.output_dir = None if output_dir is None else os.fspath(output_dir)
         self.min_contig_len = min_contig_len
         self.num_process = num_process
         self.orf_finder = orf_finder
@@ -163,6 +169,11 @@ class DBSCANEnsembleBinner:
                 orf_finder=self.orf_finder,
                 contig_to_marker=True,
             )
+        # get_marker returns [] (not a dict) when no marker hits were found;
+        # treat that as "no markers" so binning degrades gracefully instead
+        # of raising AttributeError on the .get() below.
+        if not isinstance(c2m, dict):
+            c2m = {}
         return [list(c2m.get(str(name), [])) for name in self.contig_names]
 
     # ------------------------------------------------------------------
@@ -221,6 +232,8 @@ class DBSCANEnsembleBinner:
                     if len(rows) < self.min_bin_size:
                         continue
                     cluster_weight = float(sum(weights[r] for r in rows))
+                    if self.minfasta > 0 and cluster_weight < self.minfasta:
+                        continue
                     markers: list[str] = []
                     for r in rows:
                         markers.extend(marker_per_row[r])
@@ -250,13 +263,29 @@ class DBSCANEnsembleBinner:
     # ------------------------------------------------------------------
 
     def cluster(self, embeddings: np.ndarray) -> np.ndarray:
-        """(N, d) → (N,) integer bin assignments (all >= 0)."""
+        """(N, d) → (N,) integer bin assignments.
+
+        With ``minfasta == 0`` (the default) every row gets a label >= 0:
+        any contig not placed in an extracted bin becomes its own
+        singleton. With ``minfasta > 0`` SemiBin's long-read behaviour is
+        reproduced instead — clusters below ``minfasta`` base pairs are
+        never extracted, the greedy loop stops once the remaining contigs
+        total fewer than ``minfasta`` bp, and every leftover or
+        sub-``minfasta`` contig is labelled ``-1`` (the pipeline drops
+        ``-1``, mirroring SemiBin's ``write_bins(minfasta=...)``).
+        """
         embeddings = np.asarray(embeddings)
         n = embeddings.shape[0]
         if n == 0:
             return np.zeros(0, dtype=np.int64)
         if n == 1:
             return np.zeros(1, dtype=np.int64)
+
+        if self.minfasta > 0 and self.contig_lengths is None:
+            raise ValueError(
+                "DBSCANEnsembleBinner: minfasta > 0 requires contig_lengths "
+                "(base-pair weights) so bins can be sized in bp."
+            )
 
         marker_per_row = self._resolve_markers(n)
         weights = (
@@ -270,6 +299,8 @@ class DBSCANEnsembleBinner:
         active = list(range(n))
         extracted: list[list[int]] = []
         while active:
+            if self.minfasta > 0 and sum(weights[r] for r in active) < self.minfasta:
+                break
             if len(active) == 1:
                 extracted.append(list(active))
                 break
@@ -278,9 +309,7 @@ class DBSCANEnsembleBinner:
             local_sweep = [
                 np.array([sweep_eps[r] for r in active]) for sweep_eps in sweep
             ]
-            best_local = self._select_best_bin(
-                local_sweep, local_marker, local_weights
-            )
+            best_local = self._select_best_bin(local_sweep, local_marker, local_weights)
             if best_local is None:
                 break
             best_global = [active[i] for i in best_local]
@@ -289,6 +318,18 @@ class DBSCANEnsembleBinner:
             active = [r for r in active if r not in best_set]
 
         labels = np.full(n, -1, dtype=np.int64)
+        if self.minfasta > 0:
+            # SemiBin-faithful: drop sub-minfasta bins; leftovers stay -1.
+            bin_id = 0
+            for rows in extracted:
+                if sum(weights[r] for r in rows) < self.minfasta:
+                    continue
+                for r in rows:
+                    labels[r] = bin_id
+                bin_id += 1
+            return labels
+
+        # Backward-compatible default: each leftover contig becomes a singleton.
         for bin_id, rows in enumerate(extracted):
             for r in rows:
                 labels[r] = bin_id

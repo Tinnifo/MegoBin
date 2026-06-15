@@ -1,0 +1,8 @@
+# SemiBin2 self-supervised pair sampler: must-link = contig halves (fixed),
+# cannot-link = random distinct half-contig rows, redrawn every epoch.
+# Count = min(2N * ratio // 2, max_pairs) == SemiBin's
+# min(n_must_link * 1000 // 2, 4_000_000).
+_target_: megobin.data.semibin2_sampler.SemiBin2PairSampler
+ratio: 1000
+max_pairs: 4000000
+seed: ${seed}

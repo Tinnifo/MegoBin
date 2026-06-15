@@ -1,0 +1,35 @@
+# @package _global_
+#
+# Reproduces SemiBin2 single-sample long-read binning end-to-end:
+# k-mer + abundance features -> self-supervised contrastive encoder
+# (Adam 1e-3, StepLR 0.9, 15 epochs, batch 2048) -> long-read log-depth
+# augmentation in encode() -> DBSCAN ensemble + marker-F1 with minfasta.
+#
+# Combined mode (>=5 BAMs): override on the CLI with
+#   encoder.is_combined=true encoder.input_dim=<136 + n_sample>
+# The dataset's data.csv / data_split.csv must already carry the combined
+# (one coverage column per sample) layout from feature generation.
+
+defaults:
+  - /dataset: example
+  - /features: canonical_kmer_abundance
+  - /encoder: semibin2
+  - /loss: hinge
+  - /binner: dbscan_ensemble_semibin
+  - /evaluator: checkm2
+  - /filter: no_op
+  - /pair_sampler: semibin2
+  - /trainer: single_phase
+  - /logger: tensorboard
+  - _self_
+
+seed: 42
+
+trainer:
+  epochs: 15          # SemiBin2 self-supervised long-read default
+
+encoder:
+  input_dim: 136
+  kmer_dim: 136
+  output_dim: 100
+  is_combined: false

@@ -1,4 +1,4 @@
-_target_: megobin.binners.dbscan_ensemble.DBSCANEnsembleBinner
+_target_: megobin.binners.semibin_2.DBSCANEnsembleBinner
 eps_values: [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55]
 min_samples: 5
 min_bin_size: 1

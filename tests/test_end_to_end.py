@@ -11,7 +11,7 @@ import torch
 
 from megobin.data.uncertain_gen_sampler import UncertainGenPairSampler
 from megobin.losses.mahalanobis_bce import MahalanobisBCELoss
-from megobin.encoders.uncertain_gen import UncertainGenEncoder
+from megobin.encoders.uncertaingen import UncertainGenEncoder
 from megobin.trainers.single_phase import SinglePhaseTrainer
 
 
