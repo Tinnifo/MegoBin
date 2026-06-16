@@ -13,22 +13,6 @@ from sklearn.neighbors import kneighbors_graph
 
 
 class DBSCANEnsembleBinner:
-    """SemiBin 2 DBSCAN ensemble binner.
-
-    Pipeline:
-      1. Build a k-NN distance graph on the encoder embeddings.
-      2. Sweep DBSCAN over `eps_values` (with sample weights = contig
-         lengths when available) using the precomputed graph.
-      3. Iteratively pick the highest marker-F1 bin across the sweep,
-         relaxing contamination, exactly like SemiBin's `get_best_bin`.
-      4. Any contig not assigned to an extracted bin is given its own
-         singleton id, so every row gets a label >= 0.
-
-    Markers may be supplied either pre-computed (`contig_to_marker`) or
-    by passing a `contig_fasta`; in the latter case `estimate_seeds` +
-    `get_marker` from `megobin.utils.markers` are run on first call.
-    """
-
     def __init__(
         self,
         eps_values=(
@@ -206,10 +190,6 @@ class DBSCANEnsembleBinner:
         marker_per_row: list[list[str]],
         weights: np.ndarray,
     ) -> list[int] | None:
-        """Pick the highest-F1 bin across the eps sweep, relaxing contamination.
-
-        Port of SemiBin's ``get_best_bin`` working on embedding-row indices.
-        """
         for max_contamination in (0.1, 0.2, 0.3, 0.4, 0.5, 1.0):
             max_f1 = 0.0
             weight_of_max = float("inf")
@@ -250,17 +230,6 @@ class DBSCANEnsembleBinner:
         return None
 
     def cluster(self, embeddings: np.ndarray) -> np.ndarray:
-        """(N, d) → (N,) integer bin assignments.
-
-        With ``minfasta == 0`` (the default) every row gets a label >= 0:
-        any contig not placed in an extracted bin becomes its own
-        singleton. With ``minfasta > 0`` SemiBin's long-read behaviour is
-        reproduced instead — clusters below ``minfasta`` base pairs are
-        never extracted, the greedy loop stops once the remaining contigs
-        total fewer than ``minfasta`` bp, and every leftover or
-        sub-``minfasta`` contig is labelled ``-1`` (the pipeline drops
-        ``-1``, mirroring SemiBin's ``write_bins(minfasta=...)``).
-        """
         embeddings = np.asarray(embeddings)
         n = embeddings.shape[0]
         if n == 0:

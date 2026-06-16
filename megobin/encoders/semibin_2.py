@@ -15,39 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 class SemiBin2Encoder(nn.Module):
-    """SemiBin2 self-supervised encoder for the long-read DBSCAN path.
-
-    The network is SemiBin's ``Semi_encoding_single.encoder1`` (and the
-    identical ``Semi_encoding_multiple`` encoder for combined mode)::
-
-        Linear(input_dim -> 512) -> BatchNorm1d -> LeakyReLU -> Dropout(0.2)
-        Linear(512 -> 512)       -> BatchNorm1d -> LeakyReLU -> Dropout(0.2)
-        Linear(512 -> output_dim)   # output_dim = 100
-
-    ``encode`` reproduces SemiBin's ``cluster_long_read`` preprocessing so
-    the representation handed to :class:`DBSCANEnsembleBinner` matches what
-    SemiBin feeds to its kNN graph + DBSCAN ensemble:
-
-    - **Single-sample** (``is_combined=False``): the network embeds the
-      k-mer block only (``features[:, :kmer_dim]``); the per-sample *mean*
-      coverage (even columns of the ``[mean, var, ...]`` depth block) is
-      ``log(clip(., 1e-6))``-transformed and concatenated to the
-      embedding → ``[emb | log_depth]`` of width ``output_dim + n_sample``.
-    - **Combined** (``is_combined=True``, >=5 samples): the network embeds
-      the full ``kmer + abundance`` matrix and the embedding is returned
-      as-is (no depth concat). The abundance column+L1 normalisation that
-      SemiBin applies in this mode is done once, globally, in
-      ``pipeline.py`` (over the whole feature matrix, exactly like
-      ``train_self``), so it is *not* repeated here.
-
-    The output is intentionally **not** L2-normalised — SemiBin's eps
-    sweep is tuned to the raw embedding (+ log-depth) scale.
-
-    ``consumes_depth = True`` tells the pipeline to pass the full
-    ``data.csv`` matrix (k-mer + abundance) to ``encode`` instead of
-    dropping abundance via the ``norm_abundance`` gate.
-    """
-
     #: Pipeline reads this to skip the abundance-dropping gate (see pipeline.py).
     consumes_depth = True
 

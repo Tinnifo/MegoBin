@@ -7,33 +7,6 @@ from megobin.losses.base import ContrastiveLoss
 
 
 class UncertainGenEncoder(nn.Module):
-    """UncertainGen variational encoder.
-
-    Two heads with identical architecture:
-
-        Linear(input_dim → hidden_dim)
-        BatchNorm1d
-        Sigmoid
-        Dropout
-        Linear(hidden_dim → embedding_dim)
-
-    The mean head emits μ; the cov head emits log_cov, exponentiated to
-    produce a strictly-positive diagonal covariance.
-
-    Inference:
-      - ``encode``                  → μ only,    (N, embedding_dim)
-      - ``encode_with_uncertainty`` → (μ, cov),  both (N, embedding_dim)
-
-    ``output_normalize=True`` L2-normalises μ on the inference path so
-    the binner's ε sweep stays in a known scale; the cov head output is
-    not normalised. Training-time forwards are NOT normalised — the
-    Mahalanobis loss expects unbounded μ to learn meaningful scale.
-
-    Training is two-phase via ``TwoPhaseTrainer``:
-      - ``include_std=False`` → ``loss(μ_i, μ_j, label)``
-      - ``include_std=True``  → ``loss(cat[μ_i, cov_i], cat[μ_j, cov_j], label)``
-    """
-
     def __init__(
         self,
         input_dim: int = 136,
@@ -45,7 +18,7 @@ class UncertainGenEncoder(nn.Module):
     ):
         super().__init__()
         self._embedding_dim = embedding_dim
-        self.include_std = include_std 
+        self.include_std = include_std
         self.output_normalize = output_normalize
 
         self.mean = nn.Sequential(
@@ -103,11 +76,6 @@ class UncertainGenEncoder(nn.Module):
         batch: tuple[torch.Tensor, ...],
         loss_fn: ContrastiveLoss,
     ) -> torch.Tensor:
-        """Forward both branches → ``loss_fn(z_i, z_j, label)``.
-
-        Phase 1 (``include_std=False``): ``z`` is just μ, width = ``embedding_dim``.
-        Phase 2 (``include_std=True``):  ``z`` is ``cat([μ, cov])``,  width = ``2 * embedding_dim``.
-        """
         x_i, x_j, label = batch
         if self.include_std:
             mu_i, cov_i = self.forward(x_i)

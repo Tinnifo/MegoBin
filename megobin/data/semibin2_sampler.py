@@ -4,33 +4,6 @@ from torch.utils.data import Dataset
 
 
 class SemiBin2PairSampler(Dataset):
-    """SemiBin2 self-supervised pair sampler with per-epoch resampling.
-
-    Reproduces SemiBin's ``train_self`` pair construction:
-
-    - **Must-link (positive)** pairs: the two halves of each contig — fixed
-      across epochs. With ``features_split`` laid out as
-      ``[left_halves; right_halves]``, row ``i`` and row ``i + N`` are the
-      two halves of contig ``i``.
-    - **Cannot-link (negative)** pairs: uniformly random pairs of distinct
-      *half-contig rows*, **redrawn every epoch** via :meth:`set_epoch`
-      (called by the trainer at the start of each epoch). The count is
-      ``min(rows * ratio // 2, max_pairs)`` where ``rows == 2N`` — i.e.
-      SemiBin's ``min(n_must_link * 1000 // 2, 4_000_000)``. Distinct rows
-      are guaranteed by SemiBin's offset trick
-      ``idx2 = (idx1 + 1 + rand(rows - 1)) % rows``.
-
-    This is the only piece that differs from :class:`UncertainGenPairSampler`,
-    which draws one fixed negative set at construction. Drop-in compatible:
-    both consume ``features_split`` and emit ``(x_i, x_j, label)``, so either
-    sampler can be paired with either encoder / preprocessing via the
-    ``pair_sampler`` config slot.
-
-    Note: per-epoch resampling mutates this in-process Dataset, so it only
-    reaches the DataLoader when ``num_workers == 0`` (the SinglePhaseTrainer
-    warns otherwise).
-    """
-
     def __init__(
         self,
         features_split: np.ndarray,

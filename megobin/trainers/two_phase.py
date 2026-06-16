@@ -18,44 +18,6 @@ log = logging.getLogger(__name__)
 
 
 class TwoPhaseTrainer:
-    """Multi-phase optimization loop.
-
-    Each entry in ``phases`` is a dict describing one contiguous phase.
-    The trainer runs them in order, and for each phase it:
-
-    1. Applies ``encoder_attrs`` / ``loss_attrs`` via ``setattr`` — used
-       to toggle things like ``include_std`` on the encoder and loss in
-       lockstep. Kept generic so any stateful flag can be flipped
-       without adding encoder-specific knowledge to the trainer.
-    2. Freezes every encoder parameter, then unfreezes the named
-       ``params`` group (resolved via ``encoder.parameter_groups()``).
-    3. Builds a fresh optimizer from the phase's ``optimizer`` partial
-       over the now-trainable parameters. Optional fresh scheduler.
-    4. Iterates the sampler via DataLoader for ``epochs`` epochs,
-       calling ``encoder.training_step(batch, loss_fn)``.
-
-    The name "two_phase" reflects the primary use case (UncertainGen's
-    mean-then-cov schedule) but nothing in the implementation caps the
-    count at two — you can configure N phases for curricula or
-    pretrain/finetune regimes.
-
-    After all phases complete, ``requires_grad`` is restored on every
-    encoder parameter so downstream ``encode`` / eval paths behave
-    normally.
-
-    Per-phase keys (all optional unless noted):
-        params (str, required):    parameter-group name to unfreeze
-        epochs (int, required):    number of epochs in this phase
-        optimizer (Callable):      partial optimizer factory — required
-        scheduler (Callable|None): partial scheduler factory
-        batch_size (int):          DataLoader batch size
-        grad_clip (float|None):    optional grad-norm clip
-        num_workers (int):         DataLoader workers
-        shuffle (bool):            DataLoader shuffle flag
-        encoder_attrs (dict):      attrs to setattr on encoder
-        loss_attrs (dict):         attrs to setattr on loss_fn
-    """
-
     def __init__(
         self,
         phases: list[dict[str, Any]],
@@ -107,7 +69,9 @@ class TwoPhaseTrainer:
                     )
                     save_checkpoint(encoder, interim)
                     if self.logger:
-                        self.logger.log_checkpoint(interim, name=f"phase{phase_idx + 1}")
+                        self.logger.log_checkpoint(
+                            interim, name=f"phase{phase_idx + 1}"
+                        )
         finally:
             for p in encoder.parameters():
                 p.requires_grad = True
@@ -129,7 +93,9 @@ class TwoPhaseTrainer:
     ) -> None:
         params_name = phase["params"]
         epochs = phase["epochs"]
-        optimizer_factory: Callable[[Iterable[nn.Parameter]], torch.optim.Optimizer] = phase["optimizer"]
+        optimizer_factory: Callable[[Iterable[nn.Parameter]], torch.optim.Optimizer] = (
+            phase["optimizer"]
+        )
         scheduler_factory = phase.get("scheduler")
         batch_size = phase.get("batch_size", 2048)
         grad_clip = phase.get("grad_clip")

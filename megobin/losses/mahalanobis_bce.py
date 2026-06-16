@@ -4,24 +4,6 @@ import torch.nn.functional as F
 
 
 class MahalanobisBCELoss(nn.Module):
-    """Mahalanobis BCE loss (UncertainGen).
-
-    log_q = -Σ_d (μ_i - μ_j)² / (S_i + S_j)
-    loss  = BCE(exp(clamp(log_q)), label)
-
-    Two modes controlled by ``include_std``:
-
-    - ``include_std=False`` (Phase 1, mean only):
-      z_i and z_j are mean embeddings (batch, d).
-      Degrades to standard BCE on exp(-d²) (no clamp — unit covariance
-      keeps log_q well-scaled across many dimensions).
-
-    - ``include_std=True`` (Phase 2, with covariance):
-      z_i and z_j are concatenated [μ, S] tensors (batch, 2*d).
-      The loss splits them at the midpoint.  Clamp is applied here to
-      stabilise early training when learned covariances may be small.
-    """
-
     def __init__(self, clamp_threshold: float = 1.0, include_std: bool = False):
         super().__init__()
         self.clamp_threshold = clamp_threshold

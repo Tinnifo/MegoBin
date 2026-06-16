@@ -1,22 +1,3 @@
-"""CLI: generate SemiBin2 features from a single assembly + BAM(s).
-
-Produces ``data.csv``, ``data_split.csv`` and ``contigs.fasta`` in the output
-directory — exactly the inputs ``megobin/pipeline.py`` consumes. Mirrors
-SemiBin2's ``single_easy_bin`` feature step (single assembly, bare contig
-names, BAM references matching those names). ``is_combined`` is decided by the
-number of BAMs (``>= 5`` → combined / multi-sample-abundance layout).
-
-Usage::
-
-    python -m megobin.features.run_features \
-        --contigs contigs.fasta --bams sample.bam --out data/ds_single
-
-    # combined mode (>=5 BAMs of the same assembly):
-    python -m megobin.features.run_features \
-        --contigs contigs.fasta --bams s1.bam s2.bam s3.bam s4.bam s5.bam \
-        --out data/ds_combined
-"""
-
 import argparse
 import logging
 import os
@@ -28,7 +9,9 @@ from megobin.utils.SemiBin_utils import load_fasta
 
 def main(argv=None) -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--contigs", required=True, help="Assembly FASTA (bare contig names).")
+    p.add_argument(
+        "--contigs", required=True, help="Assembly FASTA (bare contig names)."
+    )
     p.add_argument(
         "--bams", nargs="+", default=None, help="Sorted/indexed BAM file(s)."
     )
@@ -69,9 +52,7 @@ def main(argv=None) -> None:
 
     computed_min, ml_thr, _ = load_fasta(args.contigs, args.ratio)
     binned_length = args.min_len if args.min_len is not None else computed_min
-    must_link_threshold = (
-        args.ml_threshold if args.ml_threshold is not None else ml_thr
-    )
+    must_link_threshold = args.ml_threshold if args.ml_threshold is not None else ml_thr
     logger.info(
         "binned_length=%s, must_link_threshold=%s, n_bams=%s",
         binned_length,

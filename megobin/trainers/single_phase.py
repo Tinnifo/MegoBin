@@ -18,29 +18,15 @@ log = logging.getLogger(__name__)
 
 
 class SinglePhaseTrainer:
-    """Vanilla single-phase optimization loop.
-
-    Every epoch: iterate the ``PairSampler`` via a DataLoader, call
-    ``encoder.training_step(batch, loss_fn)``, backprop, step the
-    optimizer, optionally step the scheduler. Gradient clipping and
-    a logger are optional.
-
-    ``optimizer`` and ``scheduler`` are injected as *partial* callables
-    (Hydra ``_partial_: true``) so the trainer can call them with the
-    encoder's parameter group at ``fit`` time. This keeps the trainer
-    agnostic to which optimizer/scheduler is used.
-
-    ``params`` selects which of ``encoder.parameter_groups()`` to
-    optimize — defaults to ``"all"``. Phase-based trainers override
-    this to train only a subset.
-    """
-
     def __init__(
         self,
         optimizer: Callable[[Iterable[nn.Parameter]], torch.optim.Optimizer],
         epochs: int = 10,
         batch_size: int = 2048,
-        scheduler: Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler] | None = None,
+        scheduler: Callable[
+            [torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler
+        ]
+        | None = None,
         grad_clip: float | None = None,
         params: str = "all",
         num_workers: int = 0,
@@ -88,7 +74,9 @@ class SinglePhaseTrainer:
             )
 
         optimizer = self.optimizer_factory(trainable)
-        scheduler = self.scheduler_factory(optimizer) if self.scheduler_factory else None
+        scheduler = (
+            self.scheduler_factory(optimizer) if self.scheduler_factory else None
+        )
 
         # PairSampler implementations are torch Datasets in practice;
         # the Protocol just doesn't inherit from Dataset.
@@ -152,9 +140,7 @@ class SinglePhaseTrainer:
             avg = running / max(n_batches, 1)
             log.info("epoch %d/%d — loss %.4f", epoch + 1, self.epochs, avg)
             if self.logger:
-                self.logger.log_scalars(
-                    {"train/epoch_loss": avg}, step=epoch + 1
-                )
+                self.logger.log_scalars({"train/epoch_loss": avg}, step=epoch + 1)
 
             if (
                 self.checkpoint_path is not None
