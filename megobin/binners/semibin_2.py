@@ -5,10 +5,12 @@
 import logging
 import os
 import tempfile
+import warnings
 from collections import defaultdict
 
 import numpy as np
 from sklearn.cluster import dbscan
+from sklearn.exceptions import EfficiencyWarning
 from sklearn.neighbors import kneighbors_graph
 
 
@@ -172,16 +174,29 @@ class DBSCANEnsembleBinner:
             else None
         )
         results = []
-        for eps in self.eps_values:
-            _, labels = dbscan(
-                dist_matrix,
-                eps=eps,
-                min_samples=self.min_samples,
-                n_jobs=self.n_jobs,
-                metric="precomputed",
-                sample_weight=sample_weight,
+        # `kneighbors_graph` orders each row's neighbours by distance already,
+        # but DBSCAN's precomputed path copies the matrix and calls `setdiag`
+        # to add self-distances, which re-inserts entries and undoes the
+        # value-sort. sklearn then re-sorts internally (correctly) but emits an
+        # EfficiencyWarning each iteration. Pre-sorting here doesn't help since
+        # `setdiag` runs afterwards, so we suppress this specific, harmless
+        # warning around the sweep to keep the log clean.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="Precomputed sparse input was not sorted by row values",
+                category=EfficiencyWarning,
             )
-            results.append(np.asarray(labels))
+            for eps in self.eps_values:
+                _, labels = dbscan(
+                    dist_matrix,
+                    eps=eps,
+                    min_samples=self.min_samples,
+                    n_jobs=self.n_jobs,
+                    metric="precomputed",
+                    sample_weight=sample_weight,
+                )
+                results.append(np.asarray(labels))
         return results
 
     def _select_best_bin(
