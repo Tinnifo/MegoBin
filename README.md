@@ -1,5 +1,8 @@
 # MegoBin
 
+<p align="center"><img src="msc/megobin-logo.png" width="840" alt="MegoBin logo"></p>
+
+
 MegoBin is a modular research pipeline for **metagenomic binning.** Every part of the pipeline — encoders, losses, pair samplers, trainers, binners, evaluators, loggers — is a swappable slot defined by a Python `Protocol` and composed via [Hydra](https://hydra.cc/) YAML configs, so adding a new method means writing one file and dropping in a config.
 
 ```
