@@ -1,15 +1,28 @@
-# MegoBin
-
 <p align="center"><img src="msc/megobin-logo.png" width="840" alt="MegoBin logo"></p>
 
 
+<p align="center"><img src="msc/pipeline.png" width="840" alt="MegoBin logo"></p>
+
 MegoBin is a modular research pipeline for **metagenomic binning.** Every part of the pipeline — encoders, losses, pair samplers, trainers, binners, evaluators, loggers — is a swappable slot defined by a Python `Protocol` and composed via [Hydra](https://hydra.cc/) YAML configs, so adding a new method means writing one file and dropping in a config.
 
-```
-Dataset → Features (shared) → Encoder → Trainer → Binner → Evaluator
-                                 ↑         ↑
-                          Loss, Sampler   Optimizer, Scheduler, Logger
-```
+## Slots
+
+Each slot is a `@runtime_checkable` Protocol; configs select an implementation by name.
+
+| Slot           | Source                                                | Configs                              |
+|----------------|-------------------------------------------------------|--------------------------------------|
+| Dataset        | [megobin/data/](megobin/data/)                        | [configs/dataset/](configs/dataset/) |
+| Features       | [megobin/features/](megobin/features/)                | [configs/features/](configs/features/) |
+| Encoder        | [megobin/encoders/](megobin/encoders/)                | [configs/encoder/](configs/encoder/) |
+| Loss           | [megobin/losses/](megobin/losses/)                    | [configs/loss/](configs/loss/)       |
+| Pair sampler   | [megobin/embedders/](megobin/embedders/)              | [configs/pair_sampler/](configs/pair_sampler/) |
+| Trainer        | [megobin/trainers/](megobin/trainers/)                | [configs/trainer/](configs/trainer/) |
+| Binner         | [megobin/binners/](megobin/binners/)                  | [configs/binner/](configs/binner/)   |
+| Filter         | [megobin/filters/](megobin/filters/)                  | [configs/filter/](configs/filter/)   |
+| Evaluator      | [megobin/evaluators/](megobin/evaluators/)            | [configs/evaluator/](configs/evaluator/) |
+
+Adding a new component = one Python file + one YAML + one test. See [docs/04-tutorials/add-a-new-encoder.md](docs/04-tutorials/add-a-new-encoder.md).
+
 
 ## Quickstart
 
@@ -30,23 +43,6 @@ python megobin/pipeline.py --config-name experiment/uncertain_gen_dbscan \
 
 Output lands in `outputs/<date>/<time>/` — fully-resolved config, checkpoint, bin FASTAs, TensorBoard events. See [docs/02-getting-started/reading-the-output.md](docs/02-getting-started/reading-the-output.md).
 
-## Slots
-
-Each slot is a `@runtime_checkable` Protocol; configs select an implementation by name.
-
-| Slot           | Source                                                | Configs                              |
-|----------------|-------------------------------------------------------|--------------------------------------|
-| Dataset        | [megobin/data/](megobin/data/)                        | [configs/dataset/](configs/dataset/) |
-| Features       | [megobin/features/](megobin/features/)                | [configs/features/](configs/features/) |
-| Encoder        | [megobin/encoders/](megobin/encoders/)                | [configs/encoder/](configs/encoder/) |
-| Loss           | [megobin/losses/](megobin/losses/)                    | [configs/loss/](configs/loss/)       |
-| Pair sampler   | [megobin/embedders/](megobin/embedders/)              | [configs/pair_sampler/](configs/pair_sampler/) |
-| Trainer        | [megobin/trainers/](megobin/trainers/)                | [configs/trainer/](configs/trainer/) |
-| Binner         | [megobin/binners/](megobin/binners/)                  | [configs/binner/](configs/binner/)   |
-| Filter         | [megobin/filters/](megobin/filters/)                  | [configs/filter/](configs/filter/)   |
-| Evaluator      | [megobin/evaluators/](megobin/evaluators/)            | [configs/evaluator/](configs/evaluator/) |
-
-Adding a new component = one Python file + one YAML + one test. See [docs/04-tutorials/add-a-new-encoder.md](docs/04-tutorials/add-a-new-encoder.md).
 
 ## Documentation
 
