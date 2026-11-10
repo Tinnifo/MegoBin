@@ -10,6 +10,7 @@ grad_clip: null
 params: all
 num_workers: 0
 shuffle: true
+drop_last: false   # true skips the trailing partial batch of each epoch
 device: null       # auto: cuda if available else cpu
 log_every: 50
 logger: null       # pipeline.py injects the configured Logger at instantiate time

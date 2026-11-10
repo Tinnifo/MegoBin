@@ -17,6 +17,7 @@ seed: 42
 
 trainer:
   epochs: 15          # SemiBin2 self-supervised long-read default
+  drop_last: true     # SemiBin2 drops the trailing partial batch
 
 encoder:
   input_dim: 136

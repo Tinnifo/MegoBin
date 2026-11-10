@@ -31,6 +31,7 @@ class SinglePhaseTrainer:
         params: str = "all",
         num_workers: int = 0,
         shuffle: bool = True,
+        drop_last: bool = False,
         device: str | None = None,
         log_every: int = 50,
         logger: "Logger | None" = None,
@@ -45,6 +46,9 @@ class SinglePhaseTrainer:
         self.params = params
         self.num_workers = num_workers
         self.shuffle = shuffle
+        # Skip the trailing partial batch of each epoch (SemiBin trains with
+        # drop_last=True). Off by default so small datasets still train.
+        self.drop_last = drop_last
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.log_every = log_every
         self.logger = logger
@@ -86,7 +90,15 @@ class SinglePhaseTrainer:
             shuffle=self.shuffle,
             num_workers=self.num_workers,
             pin_memory=(device.type == "cuda"),
+            drop_last=self.drop_last,
         )
+        if len(loader) == 0:
+            log.warning(
+                "No full batch: %d pairs < batch_size %d with drop_last=True, "
+                "so the encoder will not be updated.",
+                len(sampler),
+                self.batch_size,
+            )
 
         # Samplers may resample their pairs each epoch (e.g. SemiBin2's
         # per-epoch cannot-link redraw). Duck-typed so samplers without it
