@@ -1,0 +1,6 @@
+# Standalone judge: python -m megobin.evaluate bins_dir=<dir of bin FASTAs>
+defaults:
+  - evaluator: checkm2
+  - _self_
+
+bins_dir: ???

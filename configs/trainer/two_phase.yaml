@@ -10,10 +10,15 @@ logger: null       # pipeline.py injects the configured Logger at instantiate ti
 checkpoint_path: ${hydra:runtime.output_dir}/encoder.pt
 checkpoint_per_phase: false
 
-# Default schedule targets UncertainGen: train mean first (50 epochs,
-# include_std=False), then freeze mean and train covariance with a
-# fresh Adam (25 epochs, include_std=True). Override ``phases`` in an
-# experiment config to use a different regime.
+# Default schedule targets UncertainGen: train mean first (50 epochs), then
+# freeze mean and train covariance with a fresh Adam (25 epochs).
+#
+# Each phase declares the loss it uses (``loss``). The loss declares what it
+# needs from z: phase 1 needs ``mu`` only (unit covariance), phase 2 needs
+# ``mu`` and ``var``. The encoder can send both and computes what the loss asks
+# for; a loss that needs ``var`` behind an encoder that cannot send it fails at
+# pipeline start. A phase without ``loss`` uses the experiment's ``loss`` group.
+# Override ``phases`` in an experiment config to use a different regime.
 phases:
   - params: mean
     epochs: 50
@@ -26,9 +31,9 @@ phases:
       _partial_: true
       lr: 1e-3
     scheduler: null
-    encoder_attrs:
-      include_std: false
-    loss_attrs:
+    loss:
+      _target_: megobin.losses.mahalanobis_bce.MahalanobisBCELoss
+      clamp_threshold: 1.0
       include_std: false
 
   - params: cov
@@ -42,7 +47,7 @@ phases:
       _partial_: true
       lr: 1e-3
     scheduler: null
-    encoder_attrs:
-      include_std: true
-    loss_attrs:
+    loss:
+      _target_: megobin.losses.mahalanobis_bce.MahalanobisBCELoss
+      clamp_threshold: 1.0
       include_std: true

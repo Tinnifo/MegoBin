@@ -1,3 +1,4 @@
 _target_: megobin.losses.mahalanobis_bce.MahalanobisBCELoss
 clamp_threshold: 1.0
+# The loss declares what it needs: include_std=true -> reads z.var, false -> z.mu only.
 include_std: false

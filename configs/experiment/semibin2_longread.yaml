@@ -1,19 +1,29 @@
 # @package _global_
+#
+# SemiBin2 single-sample long-read path (self-supervised).
+# Shape: features -> embedder (SemiBin2PairSampler + SemiBin2Encoder + hinge
+# loss + single-phase trainer) -> filter (no-op) -> DBSCAN ensemble binner.
+# Scoring is not part of the run: python -m megobin.evaluate bins_dir=<run>/bins
 
 defaults:
   - /dataset: example
+  - /pipeline: embed_and_bin
   - /features: canonical_kmer_abundance
   - /encoder: semibin2
   - /loss: hinge
-  - /binner: dbscan_ensemble_semibin
-  - /evaluator: checkm2
-  - /filter: no_op
   - /pair_sampler: semibin2
   - /trainer: single_phase
+  - /filter: no_op
+  - /binner: dbscan_ensemble_semibin
   - /logger: tensorboard
   - _self_
 
 seed: 42
+
+pipeline:
+  name: semibin2_longread
+  target: bins
+  interventions: []
 
 trainer:
   epochs: 15          # SemiBin2 self-supervised long-read default

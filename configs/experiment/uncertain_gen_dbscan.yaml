@@ -1,20 +1,32 @@
 # @package _global_
+#
+# UncertainGen: mean-then-covariance training, DBSCAN ensemble binner.
+# Shape: features -> embedder (UncertainGenPairSampler + UncertainGenEncoder +
+# Mahalanobis BCE + two-phase trainer) -> filter (no-op) -> DBSCAN ensemble.
+# Phase 1 trains `mean` with a loss that needs z.mu only; phase 2 trains `cov`
+# with a loss that needs z.var (see configs/trainer/two_phase.yaml).
+# Scoring is not part of the run: python -m megobin.evaluate bins_dir=<run>/bins
 
 defaults:
   - /dataset: example
+  - /pipeline: embed_and_bin
   - /features: canonical_kmer_abundance
   - /encoder: uncertain_gen
   - /loss: mahalanobis_bce
-  - /binner: dbscan_ensemble
-  - /evaluator: checkm2
-  - /filter: no_op
   - /pair_sampler: uncertain_gen
   - /trainer: two_phase
+  - /filter: no_op
+  - /binner: dbscan_ensemble
   - /logger: tensorboard
   - _self_
 
 seed: 42
 use_abundance: true
+
+pipeline:
+  name: uncertain_gen_dbscan
+  target: bins
+  interventions: []
 
 encoder:
   input_dim: 136

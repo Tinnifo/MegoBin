@@ -1,0 +1,37 @@
+# Pipeline shape: features -> embedder -> filter -> binner (-> refiner).
+#
+# A stage is a node of the method DAG. Each declares what it needs and what it
+# provides (port + content labels); the order is resolved backwards from
+# `target`, so stages nobody needs are not run. Components are taken from the
+# usual config groups (features, encoder, loss, pair_sampler, trainer, filter,
+# binner) by interpolation; `_recursive_: false` lets each stage instantiate its
+# own parts (the sampler needs data that only exists at run time).
+#
+# Experiments set `pipeline.name` and `pipeline.interventions`.
+name: ???
+target: bins          # `bins_refined` additionally pulls in the refiner stage
+# Ledger of how far this run bends the reference method. One entry per change:
+#   - {name: six_view_sampler, level: L2, note: "..."}     levels L0..L3
+interventions: []
+
+stages:
+  features:
+    _target_: megobin.stages.features.PrecomputedFeatures
+    _recursive_: false
+    config: ${oc.select:features,null}
+  embedder:
+    _target_: megobin.stages.embedder.TrainedEmbedder
+    _recursive_: false
+    encoder: ${encoder}
+    loss: ${loss}
+    pair_sampler: ${oc.select:pair_sampler,null}
+    trainer: ${oc.select:trainer,null}
+    resume_from: ${oc.select:resume_from,null}
+  filter:
+    _target_: megobin.stages.filter.FilterStage
+    _recursive_: false
+    config: ${oc.select:filter,null}
+  binner:
+    _target_: megobin.stages.binner.BinnerStage
+    _recursive_: false
+    config: ${binner}
