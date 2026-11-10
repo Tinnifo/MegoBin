@@ -29,7 +29,6 @@ class TestUncertainGenTrainingContract:
         assert z.shape == (20, 8)
 
     def test_training_step_phase1(self):
-        self.model.include_std = False
         x_i, x_j = torch.randn(8, 32), torch.randn(8, 32)
         label = torch.rand(8)
         loss = self.model.training_step(
@@ -43,8 +42,8 @@ Per-Protocol checks:
 
 | Protocol | Check |
 |----------|-------|
-| Encoder | four methods (`encode`, `embedding_dim`, `training_step`, `parameter_groups`) |
-| ContrastiveLoss | `__call__` returns scalar; `loss.backward()` populates `.grad` |
+| Encoder | `encode`, `embedding_dim`, `training_step`, `parameter_groups`, plus the contract: `needs`, `provides`, `feature_view`, `encode_z` |
+| ContrastiveLoss | `__call__` takes labelled `Z` objects and returns a scalar; `loss.backward()` populates `.grad`; `needs` is declared |
 | Binner | `cluster(X)` returns 1-D int array, length N, all ≥ 0 |
 | Evaluator | `score(bins_dir)` returns DataFrame with `completeness`, `contamination` |
 
@@ -67,7 +66,7 @@ def test_parameter_groups_has_mean_and_cov(self):
     assert set(groups) == {"mean", "cov", "all"}
 ```
 
-Plus a `training_step` test per phase (`include_std=False`, then `True`).
+Plus a `training_step` test per phase (a loss with `include_std=False`, then `True`; the encoder computes the fields the loss needs).
 
 ## `test_dataset_compatibility.py` — fail-fast signal checks
 
@@ -117,7 +116,7 @@ pytest tests/                      # ~90s — before PR
 | Pair sampler | `test_interfaces.py` (construct + sample one batch) |
 | Trainer | `test_interfaces.py` (construct + one `fit()`) |
 | Feature extractor | `test_dataset_compatibility.py` |
-| Evaluator | `test_interfaces.py` (mock subprocess) |
+| Evaluator | `test_interfaces.py` (mock subprocess); standalone entry in `test_pipeline_contracts.py` |
 | Dataset | `test_dataset_compatibility.py` |
 | Logger | `test_interfaces.py` (call all six methods) |
 
@@ -142,3 +141,17 @@ Exception: `parameter_groups` keys are contract-level — assert on them.
 - [tests/test_interfaces.py](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/tests/test_interfaces.py)
 - [tests/test_dataset_compatibility.py](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/tests/test_dataset_compatibility.py)
 - [tests/test_end_to_end.py](https://github.com/Tinnifo/Metagenomic-Binning/blob/main/tests/test_end_to_end.py)
+
+## `test_contracts.py` and `test_pipeline_contracts.py`
+
+`test_contracts.py` covers `resolve()` / `check()` on toy stages (backward resolution, unneeded stages not run, missing port, ambiguous provider, cycle, label mismatch naming component/port/labels).
+
+`test_pipeline_contracts.py` runs the real pipeline on a tiny synthetic dataset (`tests/conftest.py`). It checks that:
+
+- a Mahalanobis loss that needs `z.var` behind a mean-only encoder fails at start with a message naming the loss, the label and the encoder (also per phase of the two-phase trainer);
+- a binner that needs a port nobody provides (`graph`, or `contigs.fasta` missing) fails at start;
+- the refiner is resolved only when `pipeline.target` is `bins_refined`;
+- the pass-through embedder runs;
+- every failure happens before compute (no `bins/`, no `encoder.pt`) and `status.json` records `CONTRACT_FAIL`.
+
+`tests/toy_components.py` holds the stub binners/refiners used there; copy it when you need a component with a particular contract.

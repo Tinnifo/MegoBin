@@ -1,12 +1,16 @@
 # Tutorial: Add a new encoder
 
-Three files. No changes to `pipeline.py`. Worked example: a DNABERT-S **stub**.
+Three files. No changes to `pipeline.py`. Worked example: a DNABERT-S **stub**. The encoder also declares its contract (what it reads, what it sends) so a bad pairing fails at pipeline start.
 
 ## Step 1 — The Protocol
 
 ```python
 class Encoder(Protocol):
+    needs: Mapping[str, frozenset[str]]      # {"features": {"kmer"}}
+    provides: frozenset[str]                 # {"mu"} or {"mu", "var"}
+    def feature_view(self) -> FeatureView: ...
     def encode(self, features: np.ndarray) -> np.ndarray: ...
+    def encode_z(self, features: np.ndarray) -> Z[np.ndarray]: ...
     @property
     def embedding_dim(self) -> int: ...
     def training_step(self, batch, loss_fn) -> torch.Tensor: ...
@@ -22,8 +26,20 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from megobin.features.views import KmerGateView
+from megobin.z import Z
+
 
 class DNABertS(nn.Module):
+    needs = {"features": frozenset({"kmer"})}   # reads the k-mer block
+    provides = frozenset({"mu"})                # sends a point estimate only
+
+    def feature_view(self):
+        return KmerGateView()
+
+    def encode_z(self, features: np.ndarray) -> Z[np.ndarray]:
+        return Z(mu=self.encode(features))
+
     def __init__(self, input_dim: int, embedding_dim: int = 768, dropout: float = 0.1):
         super().__init__()
         self._embedding_dim = embedding_dim
@@ -52,15 +68,15 @@ class DNABertS(nn.Module):
     def training_step(self, batch, loss_fn):
         feat_i, feat_j, label = batch
         device = next(self.parameters()).device
-        z_i = self._encode_raw(feat_i.to(device))
-        z_j = self._encode_raw(feat_j.to(device))
+        z_i = Z(mu=self._encode_raw(feat_i.to(device)))
+        z_j = Z(mu=self._encode_raw(feat_j.to(device)))
         return loss_fn(z_i, z_j, label.to(device))
 
     def parameter_groups(self):
         return {"all": list(self.parameters())}
 ```
 
-`encode` always under `torch.no_grad()` and returns NumPy. `training_step` calls `loss_fn(z_i, z_j, label)` — Protocol-shaped.
+`encode` always under `torch.no_grad()` and returns NumPy. `training_step` calls `loss_fn(z_i, z_j, label)` with labelled `Z` objects, containing the fields in `loss_fn.needs["z"]`. `provides` is what the encoder *can* send; a loss that needs `var` behind this encoder fails at pipeline start (`embedder/<Loss>: needs z.['var']; offered z.['mu'] ...`).
 
 ## Step 3 — Add `configs/encoder/dnabert_s.yaml`
 

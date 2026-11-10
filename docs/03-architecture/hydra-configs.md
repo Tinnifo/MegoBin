@@ -7,18 +7,20 @@ Built on [Hydra](https://hydra.cc/docs/intro/) + [OmegaConf](https://omegaconf.r
 ```
 configs/
 ├── dataset/         example (placeholder; copy and edit for your data)
+├── pipeline/        embed_and_bin, bin_raw_features (stage wiring + target)
 ├── features/        canonical_kmer, canonical_kmer_abundance
-├── encoder/         uncertain_gen
+├── encoder/         semibin2, uncertain_gen
 ├── loss/            hinge, mahalanobis_bce
-├── binner/          dbscan_ensemble
+├── binner/          dbscan_ensemble, dbscan_ensemble_semibin
 ├── filter/          no_op, uncertainty
-├── evaluator/       checkm2
-├── pair_sampler/    uncertain_gen
+├── evaluator/       checkm2 (used by `python -m megobin.evaluate`)
+├── pair_sampler/    semibin2, uncertain_gen
 ├── trainer/         single_phase, two_phase
 ├── optimizer/       adam, adamw, sgd
 ├── scheduler/       constant, cosine, step_lr
 ├── logger/          tensorboard, none
-└── experiment/      composed runs
+├── evaluate.yaml    root config of the standalone judge
+└── experiment/      composed runs (semibin2_longread, uncertain_gen_dbscan)
 ```
 
 Each subdir is a [Hydra config group](https://hydra.cc/docs/tutorials/basic/your_first_app/config_groups/). CLI: `<group>=<config_name>`.
@@ -58,17 +60,23 @@ Trainer calls `factory(parameter_group)` when ready. Lets two-phase rebuild Adam
 
 defaults:
   - /dataset: example
+  - /pipeline: embed_and_bin     # stage wiring: features -> embedder -> filter -> binner
   - /features: canonical_kmer_abundance
   - /encoder: uncertain_gen
   - /loss: mahalanobis_bce
-  - /binner: dbscan_ensemble
-  - /evaluator: checkm2
   - /pair_sampler: uncertain_gen
   - /trainer: two_phase
+  - /filter: no_op
+  - /binner: dbscan_ensemble
   - /logger: tensorboard
   - _self_
 
 seed: 42
+
+pipeline:
+  name: uncertain_gen_dbscan
+  target: bins                   # bins_refined also pulls in the optional refiner
+  interventions: []              # ledger: [{name, level: L0..L3, note}]
 
 encoder:
   input_dim: 136
@@ -99,7 +107,9 @@ trainer:
 
 `_self_` (see [Hydra defaults list — composition order](https://hydra.cc/docs/advanced/defaults_list/#composition-order)) goes **last** in `defaults:` so the experiment's own keys (e.g. the `encoder:` block) override the slot defaults pulled in above. Putting `_self_` first silently inverts that — the slot YAML wins and your overrides are dropped.
 
-`encoder.input_dim` must equal `data_split.csv` column count (kmer features). In single-sample mode that's 136; in multi-sample mode the [norm_abundance gate](../../megobin/pipeline.py) keeps abundance and the dim grows to `136 + n_bams * 2`. `pipeline.py` trims `data.csv` automatically when the gate fires so training and inference dims align.
+`encoder.input_dim` must equal `data_split.csv` column count (kmer features). In single-sample mode that's 136; in multi-sample mode the [norm_abundance gate](../../megobin/features/views.py) keeps abundance and the dim grows to `136 + n_bams * 2`. The encoder's feature view (`KmerGateView`) trims `data.csv` automatically when the gate fires so training and inference dims align.
+
+The `pipeline` group (`configs/pipeline/*.yaml`) wires the component groups into stages by interpolation (`encoder: ${encoder}`); stage entries use `_recursive_: false` so a stage can instantiate its own parts later (a sampler needs data that only exists at run time). See [Contracts and stages](contracts-and-stages.md).
 
 ## CLI overrides
 
@@ -145,4 +155,5 @@ Prints resolved config without running. Best single debugging tool. See [Hydra c
 |---------|-------|
 | "Field not found" | `.` syntax for missing key. Use `+`, or check `--cfg job`. |
 | "Cannot instantiate" | `_target_` wrong, or kwargs don't match `__init__`. |
+| `ContractError` / exit code 2 | A contract failed before any compute. Read the message (component, port, missing labels) and `status.json`. |
 | Silent wrong behavior | `--cfg job` and diff against known-good. |

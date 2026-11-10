@@ -70,4 +70,4 @@ curl -sL https://raw.githubusercontent.com/BigDataBiology/SemiBin/main/SemiBin/m
 
 To skip the marker pathway entirely (e.g. on a machine without HMMER), pass `+binner.contig_to_marker={}` on the CLI — DBSCAN then runs without marker-F1 bin selection and every contig becomes its own singleton, so this is for plumbing tests, not real runs.
 
-[`CheckM2`](https://github.com/chklovski/CheckM2) is also optional — `pipeline.py` skips evaluation with a warning if its CLI isn't on PATH. Install via `mamba install -c bioconda checkm2` and download the diamond DB per the [CheckM2 quick start](https://github.com/chklovski/CheckM2#installation).
+[`CheckM2`](https://github.com/chklovski/CheckM2) is only needed by the standalone judge, `python -m megobin.evaluate bins_dir=<dir>` (the method run no longer scores bins); the entry point reports and exits with code 2 if its CLI isn't on PATH. Install via `mamba install -c bioconda checkm2` and download the diamond DB per the [CheckM2 quick start](https://github.com/chklovski/CheckM2#installation).

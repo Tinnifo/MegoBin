@@ -10,9 +10,6 @@ Default tracker (see [TensorBoard docs](https://www.tensorflow.org/tensorboard/g
 | Per-step `train/loss`    | Scalars                  | Every `trainer.log_every`    |
 | Per-epoch `train/epoch_loss`, `train/lr` | Scalars  | Each epoch / step            |
 | Phase-scoped `phase{n}/...` | Scalars               | Two-phase only               |
-| `eval/mean_completeness`, `eval/mean_contamination`, `eval/n_bins` | Scalars | Once at evaluation |
-| [CheckM2](https://github.com/chklovski/CheckM2) per-bin DataFrame | Text (markdown)         | Once at evaluation           |
-| Per-column histograms    | Histograms               | Once at evaluation           |
 | Checkpoints              | `checkpoints/` subdir    | After save                   |
 
 `log_dataframe` uses `df.to_markdown()` — needs `tabulate` (in `environment.yml`).

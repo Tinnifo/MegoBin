@@ -40,10 +40,10 @@ python megobin/pipeline.py --config-name experiment/uncertain_gen_dbscan \
 
 ```bash
 # Override a list 
-python megobin/pipeline.py 'evaluator.contamination_thresholds=[5,10,15]'
+python megobin/pipeline.py 'binner.eps_values=[0.1,0.3,0.5]'
 
 # Append to a list
-python megobin/pipeline.py '+evaluator.contamination_thresholds=[20]'
+python megobin/pipeline.py 'pipeline.interventions=[{name: eps_grid, level: L1}]'
 
 # null / None
 python megobin/pipeline.py trainer.scheduler=null

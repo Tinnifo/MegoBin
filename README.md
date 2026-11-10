@@ -19,7 +19,10 @@ Each slot is a `@runtime_checkable` Protocol; configs select an implementation b
 | Trainer        | [megobin/trainers/](megobin/trainers/)                | [configs/trainer/](configs/trainer/) |
 | Binner         | [megobin/binners/](megobin/binners/)                  | [configs/binner/](configs/binner/)   |
 | Filter         | [megobin/filters/](megobin/filters/)                  | [configs/filter/](configs/filter/)   |
-| Evaluator      | [megobin/evaluators/](megobin/evaluators/)            | [configs/evaluator/](configs/evaluator/) |
+| Refiner (optional) | [megobin/refiners/](megobin/refiners/)            | — |
+| Evaluator (separate entry point) | [megobin/evaluators/](megobin/evaluators/) | [configs/evaluator/](configs/evaluator/) |
+
+A run is a DAG of stages (`features → embedder → filter → binner [→ refiner]`). Every stage and component declares what it **needs** and **provides** (by port and content label); the order is resolved backwards from `pipeline.target` and all contracts are checked **before any compute** ([contracts and stages](docs/03-architecture/contracts-and-stages.md)).
 
 Adding a new component = one Python file + one YAML + one test. See [docs/04-tutorials/add-a-new-encoder.md](docs/04-tutorials/add-a-new-encoder.md).
 
@@ -41,17 +44,23 @@ python megobin/pipeline.py --config-name experiment/uncertain_gen_dbscan \
   binner=dbscan_ensemble loss=hinge trainer=single_phase
 ```
 
-Output lands in `outputs/<date>/<time>/` — fully-resolved config, checkpoint, bin FASTAs, TensorBoard events. See [docs/02-getting-started/reading-the-output.md](docs/02-getting-started/reading-the-output.md).
+Score the bins with the standalone judge (CheckM2 is not part of the method run):
+
+```bash
+python -m megobin.evaluate bins_dir=outputs/<date>/<time>/bins
+```
+
+Output lands in `outputs/<date>/<time>/` — fully-resolved config, `status.json` (stage order, contract result, config hash, interventions), checkpoint, bin FASTAs, TensorBoard events. See [docs/02-getting-started/reading-the-output.md](docs/02-getting-started/reading-the-output.md).
 
 
 ## Documentation
 
 - **Introduction** — [what is MegoBin](docs/01-introduction/what-is-megobin.md), [design philosophy](docs/01-introduction/design-philosophy.md)
 - **Getting started** — [installation](docs/02-getting-started/installation.md), [reading the output](docs/02-getting-started/reading-the-output.md)
-- **Architecture** — [slots and protocols](docs/03-architecture/slots-and-protocols.md), [Hydra configs](docs/03-architecture/hydra-configs.md)
+- **Architecture** — [slots and protocols](docs/03-architecture/slots-and-protocols.md), [contracts and stages](docs/03-architecture/contracts-and-stages.md), [Hydra configs](docs/03-architecture/hydra-configs.md)
 - **Experiment tracking** — [TensorBoard](docs/05-experiment-tracking/tensorboard.md), [checkpoints + DVC](docs/05-experiment-tracking/checkpoints-and-dvc.md)
 - **Testing** — [testing new components](docs/07-testing/testing-new-components.md)
 
 ## Requirements
 
-Python ≥3.10. Core deps (PyTorch, Hydra, scikit-learn, etc.) install via `environment.yml`. The marker-aware DBSCAN binner optionally uses `hmmsearch`; CheckM2 is optional for evaluation. Full details in [installation.md](docs/02-getting-started/installation.md).
+Python ≥3.10. Core deps (PyTorch, Hydra, scikit-learn, etc.) install via `environment.yml`. The marker-aware DBSCAN binner optionally uses `hmmsearch`; CheckM2 is needed only by `python -m megobin.evaluate`. Full details in [installation.md](docs/02-getting-started/installation.md).

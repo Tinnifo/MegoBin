@@ -10,6 +10,7 @@ outputs/2026-04-23/14-27-51/
 │   ├── config.yaml         Fully-resolved config
 │   ├── hydra.yaml          Hydra's own config
 │   └── overrides.yaml      CLI overrides
+├── status.json             resolved stage order, contract result, config hash, interventions ledger
 ├── pipeline.log            stdout+stderr
 ├── encoder.pt              Final checkpoint
 ├── bins/                   bin_XXXX.fasta files
@@ -27,6 +28,10 @@ Re-run an old experiment:
 python megobin/pipeline.py --config-path outputs/2026-04-23/14-27-51/.hydra --config-name config
 ```
 
+## `status.json`
+
+The record of the run: `status` (`OK`, `CONTRACT_FAIL`, `ERROR`), the resolved stage `order`, the `contract` result with every problem, `config_sha256` (composed config, interpolations unresolved, so equal configs hash equal), `seed`, the `interventions` ledger (levels L0–L3) and a small `summary` (contigs, bins, unbinned). A run that fails its contract check writes this file and stops before any compute.
+
 ## `pipeline.log`
 
 Full stdout+stderr.
@@ -34,7 +39,7 @@ Full stdout+stderr.
 ```bash
 grep -E "WARNING|ERROR" pipeline.log
 grep "epoch_loss" pipeline.log
-grep -A 50 "CheckM2 results" pipeline.log
+grep "Contract OK" pipeline.log
 ```
 
 ## `encoder.pt`
@@ -51,11 +56,11 @@ Saved at end of `trainer.fit()`. Disable saving with `checkpoint_path: null`. In
 
 ## `bins/`
 
-One FASTA per bin, zero-padded IDs (`bin_0000.fasta`). Input to the evaluator.
+One FASTA per bin, zero-padded IDs (`bin_0000.fasta`). Written inside the run directory. Score it with `python -m megobin.evaluate bins_dir=<run>/bins`.
 
 ## `markers/`
 
-Cache for the marker-aware DBSCAN binner. `markers.hmmout` is the raw hmmsearch domain-table output; `markers.hmmout.json` is a fingerprint sidecar (FASTA size+mtime, `min_contig_len`, `orf_finder`). On re-runs `_call_markers_from_fasta` reuses the cache when fingerprints match, skipping the ORF + hmmsearch pass.
+Cache for the marker-aware DBSCAN binner (inside the run directory; it used to be the current working directory). `markers.hmmout` is the raw hmmsearch domain-table output; `markers.hmmout.json` is a fingerprint sidecar (FASTA size+mtime, `min_contig_len`, `orf_finder`). On re-runs `_call_markers_from_fasta` reuses the cache when fingerprints match, skipping the ORF + hmmsearch pass.
 
 Delete `markers/` to force a recompute. Absent when `+binner.contig_to_marker={}` is passed.
 
@@ -74,6 +79,3 @@ tensorboard --logdir outputs/
 | Per-epoch loss             | Scalars (`train/epoch_loss`) | Each epoch                |
 | Learning rate              | Scalars (`train/lr`)         | Each step                 |
 | Phase-scoped variants      | Scalars (`phase{n}/...`)     | Two-phase trainer only    |
-| CheckM2 DataFrame          | Text (markdown)              | Once at evaluation        |
-| CheckM2 histograms         | Histograms                   | Once at evaluation        |
-| CheckM2 mean scalars       | Scalars (`eval/...`)         | Once at evaluation        |

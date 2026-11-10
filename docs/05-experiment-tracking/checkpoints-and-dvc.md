@@ -11,9 +11,9 @@ outputs/2026-04-23/14-35-02/
 │   ├── hydra.yaml
 │   └── overrides.yaml       CLI overrides
 ├── pipeline.log
+├── status.json              stage order, contract result, config hash, interventions
 ├── encoder.pt               trained weights
 ├── bins/                    output FASTAs
-├── checkm2/quality_report.tsv   ([CheckM2 schema](https://github.com/chklovski/CheckM2#how-to-interpret-the-output))
 └── tb/
     ├── events.out.tfevents.*
     ├── run_meta.json        provenance
