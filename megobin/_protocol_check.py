@@ -32,6 +32,8 @@ from megobin.trainers.two_phase import TwoPhaseTrainer
 from megobin.utils.logger import Logger
 from megobin.utils.no_op_logger import NoOpLogger
 from megobin.utils.tensorboard_logger import TensorBoardLogger
+from megobin.refiners.base import Refiner
+from megobin.refiners.no_op import IdentityRefiner
 
 def _encoder_inst() -> Encoder:
     return UncertainGenEncoder(input_dim=1, hidden_dim=1, embedding_dim=1)
@@ -49,3 +51,4 @@ _trainer_single: type[Trainer] = SinglePhaseTrainer
 _trainer_two: type[Trainer] = TwoPhaseTrainer
 _logger_noop: type[Logger] = NoOpLogger
 _logger_tensorboard: type[Logger] = TensorBoardLogger
+_refiner_identity: type[Refiner] = IdentityRefiner
