@@ -29,12 +29,24 @@ class TwoPhaseTrainer:
     ):
         if not phases:
             raise ValueError("TwoPhaseTrainer needs at least one phase.")
+        for i, p in enumerate(phases):
+            stale = [k for k in ("encoder_attrs", "loss_attrs") if p.get(k)]
+            if stale:
+                raise ValueError(
+                    f"Phase {i + 1} sets {stale}: these were removed. Declare the "
+                    "loss each phase uses as phase['loss'] (e.g. MahalanobisBCELoss "
+                    "with include_std); the encoder sends what the loss needs."
+                )
         self.phases = phases
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.log_every = log_every
         self.logger = logger
         self.checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
         self.checkpoint_per_phase = checkpoint_per_phase
+
+    def phase_losses(self, default: ContrastiveLoss) -> list[ContrastiveLoss]:
+        """Per-phase loss: ``phase["loss"]`` if declared, else ``default``."""
+        return [p.get("loss") or default for p in self.phases]
 
     def fit(
         self,
@@ -102,10 +114,8 @@ class TwoPhaseTrainer:
         num_workers = phase.get("num_workers", 0)
         shuffle = phase.get("shuffle", True)
 
-        for k, v in (phase.get("encoder_attrs") or {}).items():
-            setattr(encoder, k, v)
-        for k, v in (phase.get("loss_attrs") or {}).items():
-            setattr(loss_fn, k, v)
+        loss_fn = phase.get("loss") or loss_fn
+        loss_fn.to(device)
 
         groups = encoder.parameter_groups()
         if params_name not in groups:

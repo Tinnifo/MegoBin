@@ -56,7 +56,7 @@ class TestCheckpointResume:
         sampler = UncertainGenPairSampler(features_split=split, neg_per_pos=5, seed=0)
 
         encoder_a = UncertainGenEncoder(
-            input_dim=32, hidden_dim=32, embedding_dim=16, include_std=False
+            input_dim=32, hidden_dim=32, embedding_dim=16
         )
         trainer = SinglePhaseTrainer(
             optimizer=partial(torch.optim.Adam, lr=5e-3),
@@ -71,7 +71,7 @@ class TestCheckpointResume:
         z_a = encoder_a.encode(whole)
 
         encoder_b = UncertainGenEncoder(
-            input_dim=32, hidden_dim=32, embedding_dim=16, include_std=False
+            input_dim=32, hidden_dim=32, embedding_dim=16
         )
         load_checkpoint(encoder_b, tmp_path / "enc.pt")
         z_b = encoder_b.encode(whole)

@@ -1,15 +1,38 @@
-from typing import Any, Iterator, Protocol, runtime_checkable
+from typing import Any, Iterator, Mapping, Protocol, runtime_checkable
 
 import numpy as np
 import torch
 import torch.nn as nn
 
+from megobin.features.views import FeatureView
 from megobin.losses.base import ContrastiveLoss
+from megobin.z import Z
 
 
 @runtime_checkable
 class Encoder(Protocol):
+    @property
+    def needs(self) -> Mapping[str, frozenset[str]]:
+        """Input contract: ``{"features": {labels the encoder reads}}``."""
+        ...
+
+    @property
+    def provides(self) -> frozenset[str]:
+        """Labels of the ``z`` the encoder can send (``mu``, ``var``, ...).
+
+        The encoder owns "what I send"; the loss owns "what I need".
+        """
+        ...
+
+    def feature_view(self) -> FeatureView:
+        """The view of the feature matrix this encoder trains on and encodes."""
+        ...
+
     def encode(self, features: np.ndarray) -> np.ndarray: ...
+
+    def encode_z(self, features: np.ndarray) -> Z[np.ndarray]:
+        """Inference: everything the encoder can send, as a labelled ``Z``."""
+        ...
 
     @property
     def embedding_dim(self) -> int: ...

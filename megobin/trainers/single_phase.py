@@ -51,6 +51,9 @@ class SinglePhaseTrainer:
         self.checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
         self.checkpoint_every = checkpoint_every
 
+    def phase_losses(self, default: ContrastiveLoss) -> list[ContrastiveLoss]:
+        return [default]
+
     def fit(
         self,
         encoder: Encoder,

@@ -12,6 +12,9 @@ class UncertaintyFilter:
     ``ratio`` are dropped.
     """
 
+    #: Reads the variance the encoder sends, so the encoder must provide ``var``.
+    needs = {"z": frozenset({"mu", "var"})}
+
     def __init__(self, ratio: float = 0.10, metric: str = "max_variance"):
         if not 0.0 <= ratio < 1.0:
             raise ValueError(f"ratio must be in [0, 1); got {ratio}")

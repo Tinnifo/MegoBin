@@ -9,14 +9,19 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from megobin.features.views import CombinedNormView, FeatureView, FullMatrixView
 from megobin.losses.base import ContrastiveLoss
+from megobin.z import Z
 
 logger = logging.getLogger(__name__)
 
 
 class SemiBin2Encoder(nn.Module):
-    #: Pipeline reads this to skip the abundance-dropping gate (see pipeline.py).
-    consumes_depth = True
+    #: Input contract. Single-sample long-read mode reads the depth columns
+    #: itself (log mean depth is attached at encode), so it needs ``depth``.
+    needs = {"features": frozenset({"kmer", "depth"})}
+    #: Sends the embedding only; no variance.
+    provides = frozenset({"mu"})
 
     def __init__(
         self,
@@ -44,6 +49,10 @@ class SemiBin2Encoder(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, output_dim),
         )
+
+    def feature_view(self) -> FeatureView:
+        """Combined mode normalises the matrix once; single-sample passes it on."""
+        return CombinedNormView() if self.is_combined else FullMatrixView()
 
     def embedding(self, x: torch.Tensor) -> torch.Tensor:
         return self.encoder1(x)
@@ -77,7 +86,7 @@ class SemiBin2Encoder(nn.Module):
             logger.warning(
                 "SemiBin2Encoder.encode received k-mer-only features (%d cols); "
                 "skipping long-read log-depth augmentation. Ensure abundance "
-                "columns reach the encoder (consumes_depth gate in pipeline.py).",
+                "columns reach the encoder (the features stage must provide depth).",
                 features.shape[1],
             )
             return emb
@@ -88,6 +97,9 @@ class SemiBin2Encoder(nn.Module):
         mean_depth = depth[:, ::2]
         log_depth = np.log(np.clip(mean_depth, 1e-6, None))
         return np.concatenate([emb, log_depth], axis=1)
+
+    def encode_z(self, features: np.ndarray) -> Z[np.ndarray]:
+        return Z(mu=self.encode(features))
 
     @property
     def embedding_dim(self) -> int:
@@ -108,8 +120,8 @@ class SemiBin2Encoder(nn.Module):
         per-mode ``_net_input`` slice keeps train and inference dims aligned.
         """
         x_i, x_j, label = batch
-        z_i = self.encoder1(self._net_input(x_i))
-        z_j = self.encoder1(self._net_input(x_j))
+        z_i = Z(mu=self.encoder1(self._net_input(x_i)))
+        z_j = Z(mu=self.encoder1(self._net_input(x_j)))
         return loss_fn(z_i, z_j, label.float())
 
     def parameter_groups(self) -> dict[str, list[nn.Parameter]]:

@@ -2,24 +2,40 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from megobin.z import Z, as_z
+
 
 class MahalanobisBCELoss(nn.Module):
+    """UncertainGen's Mahalanobis BCE loss.
+
+    ``include_std`` is the loss's own declaration of what it needs: ``True``
+    means it reads ``z.var`` (learned covariance, with clamping); ``False``
+    means unit covariance and ``z.mu`` only. The encoder no longer carries a
+    matching flag; a mismatch fails at pipeline start (see ``needs``).
+    """
+
     def __init__(self, clamp_threshold: float = 1.0, include_std: bool = False):
         super().__init__()
         self.clamp_threshold = clamp_threshold
         self.include_std = include_std
 
+    @property
+    def needs(self) -> dict[str, frozenset[str]]:
+        z = {"mu", "var"} if self.include_std else {"mu"}
+        return {"batch": frozenset({"views=2", "label"}), "z": frozenset(z)}
+
     def forward(
-        self, z_i: torch.Tensor, z_j: torch.Tensor, label: torch.Tensor
+        self, z_i: "Z | torch.Tensor", z_j: "Z | torch.Tensor", label: torch.Tensor
     ) -> torch.Tensor:
+        zi, zj = as_z(z_i), as_z(z_j)
+        zi.require(self.needs["z"], type(self).__name__)
+        zj.require(self.needs["z"], type(self).__name__)
+        mu_i, mu_j = zi.array("mu"), zj.array("mu")
         if self.include_std:
-            half = z_i.shape[-1] // 2
-            mu_i, s_i = z_i[:, :half], z_i[:, half:]
-            mu_j, s_j = z_j[:, :half], z_j[:, half:]
+            s_i, s_j = zi.array("var"), zj.array("var")
         else:
-            mu_i, mu_j = z_i, z_j
-            s_i = torch.ones_like(z_i)
-            s_j = torch.ones_like(z_j)
+            s_i = torch.ones_like(mu_i)
+            s_j = torch.ones_like(mu_j)
 
         log_q = -((mu_i - mu_j) ** 2 / (s_i + s_j)).sum(dim=-1)
 

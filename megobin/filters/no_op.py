@@ -8,6 +8,8 @@ class NoOpFilter:
     expose side outputs.
     """
 
+    needs = {"z": frozenset({"mu"})}
+
     def fit_transform(
         self,
         embeddings: np.ndarray,

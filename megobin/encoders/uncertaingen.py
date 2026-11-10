@@ -1,24 +1,43 @@
+import warnings
+from typing import Iterable
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from megobin.contracts import ContractError, Problem
+from megobin.features.views import FeatureView, KmerGateView
 from megobin.losses.base import ContrastiveLoss
+from megobin.z import Z
 
 
 class UncertainGenEncoder(nn.Module):
+    #: Input contract: k-mer block only (the ``norm_abundance`` gate in
+    #: :class:`KmerGateView` decides whether depth columns are kept).
+    needs = {"features": frozenset({"kmer"})}
+    #: The encoder can send both heads. Which ones are *computed* during
+    #: training is decided by the loss (``loss.needs["z"]``).
+    provides = frozenset({"mu", "var"})
+
     def __init__(
         self,
         input_dim: int = 136,
         hidden_dim: int = 512,
         embedding_dim: int = 256,
         dropout: float = 0.2,
-        include_std: bool = False,
+        include_std: bool | None = None,
         output_normalize: bool = True,
     ):
         super().__init__()
+        if include_std is not None:
+            warnings.warn(
+                "UncertainGenEncoder(include_std=...) is ignored: the loss declares "
+                "whether it needs z.var (MahalanobisBCELoss.include_std).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         self._embedding_dim = embedding_dim
-        self.include_std = include_std
         self.output_normalize = output_normalize
 
         self.mean = nn.Sequential(
@@ -35,6 +54,33 @@ class UncertainGenEncoder(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, embedding_dim),
         )
+
+    def feature_view(self) -> FeatureView:
+        return KmerGateView()
+
+    def z(self, x: torch.Tensor, want: Iterable[str]) -> Z[torch.Tensor]:
+        """Compute exactly the labelled fields in ``want``.
+
+        Heads that nobody asked for are not run: their dropout would consume
+        RNG draws and their BatchNorm would update running statistics.
+        """
+        want = frozenset(want)
+        unknown = want - self.provides
+        if unknown:
+            raise ContractError(
+                [
+                    Problem(
+                        type(self).__name__,
+                        "z",
+                        tuple(sorted(unknown)),
+                        tuple(sorted(self.provides)),
+                    )
+                ]
+            )
+        if "var" in want:
+            mu, cov = self.forward(x)
+            return Z(mu=mu, var=cov)
+        return Z(mu=self.mean(x))
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """(batch, input_dim) → (μ, cov) with cov = exp(log_cov)."""
@@ -67,6 +113,10 @@ class UncertainGenEncoder(nn.Module):
             mu = self._maybe_normalize(mu)
         return mu.cpu().numpy(), cov.cpu().numpy()
 
+    def encode_z(self, features: np.ndarray) -> Z[np.ndarray]:
+        mu, cov = self.encode_with_uncertainty(features)
+        return Z(mu=mu, var=cov)
+
     @property
     def embedding_dim(self) -> int:
         return self._embedding_dim
@@ -77,14 +127,9 @@ class UncertainGenEncoder(nn.Module):
         loss_fn: ContrastiveLoss,
     ) -> torch.Tensor:
         x_i, x_j, label = batch
-        if self.include_std:
-            mu_i, cov_i = self.forward(x_i)
-            mu_j, cov_j = self.forward(x_j)
-            z_i = torch.cat([mu_i, cov_i], dim=-1)
-            z_j = torch.cat([mu_j, cov_j], dim=-1)
-        else:
-            z_i = self.mean(x_i)
-            z_j = self.mean(x_j)
+        want = loss_fn.needs["z"]
+        z_i = self.z(x_i, want)
+        z_j = self.z(x_j, want)
         return loss_fn(z_i, z_j, label.float())
 
     def parameter_groups(self) -> dict[str, list[nn.Parameter]]:

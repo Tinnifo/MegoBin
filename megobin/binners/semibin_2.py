@@ -13,6 +13,19 @@ from sklearn.neighbors import kneighbors_graph
 
 
 class DBSCANEnsembleBinner:
+    needs = {
+        "z_kept": frozenset({"mu"}),
+        "contigs": frozenset({"fasta"}),
+    }
+    provides = {"bins": frozenset({"one_label_per_contig"})}
+    embedding = ("z_kept", "mu")
+    bindings = {
+        "contig_fasta": "contig_fasta",
+        "contig_names": "contig_names",
+        "contig_lengths": "contig_lengths",
+        "output_dir": "markers_dir",
+    }
+
     def __init__(
         self,
         eps_values=(

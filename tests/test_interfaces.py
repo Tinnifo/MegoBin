@@ -20,6 +20,8 @@ from megobin.evaluators.checkm2 import CheckM2Evaluator
 from megobin.losses.hinge_contrastive import HingeContrastiveLoss
 from megobin.losses.mahalanobis_bce import MahalanobisBCELoss
 from megobin.encoders.uncertaingen import UncertainGenEncoder
+from megobin.contracts import ContractError
+from megobin.z import Z
 
 
 class TestUncertainGenTrainingContract:
@@ -40,7 +42,6 @@ class TestUncertainGenTrainingContract:
         assert z.shape == (20, 8)
 
     def test_training_step_phase1(self):
-        self.model.include_std = False
         x_i = torch.randn(8, 32)
         x_j = torch.randn(8, 32)
         label = torch.rand(8)
@@ -51,7 +52,6 @@ class TestUncertainGenTrainingContract:
         loss.backward()
 
     def test_training_step_phase2(self):
-        self.model.include_std = True
         x_i = torch.randn(8, 32)
         x_j = torch.randn(8, 32)
         label = torch.rand(8)
@@ -97,19 +97,26 @@ class TestMahalanobisBCELoss:
         loss.backward()
         assert z_i.grad is not None
 
-    def test_phase2_splits_mean_and_cov(self):
+    def test_phase2_reads_mu_and_var(self):
         loss_fn = MahalanobisBCELoss(include_std=True)
-        # Phase 2: z is [μ | S] concatenated → width is 2*d
-        z_i = torch.randn(16, 16, requires_grad=True)
-        z_j = torch.randn(16, 16, requires_grad=True)
-        # Ensure S > 0 so exp → positive covariance component
-        z_i = torch.cat([z_i[:, :8], z_i[:, 8:].exp()], dim=-1)
-        z_i.requires_grad_(True)
-        z_j = torch.cat([z_j[:, :8], z_j[:, 8:].exp()], dim=-1)
-        z_j.requires_grad_(True)
+        assert loss_fn.needs["z"] == frozenset({"mu", "var"})
+        # Phase 2: z carries mu and a positive variance
+        z_i = Z(mu=torch.randn(16, 8, requires_grad=True), var=torch.rand(16, 8) + 0.1)
+        z_j = Z(mu=torch.randn(16, 8, requires_grad=True), var=torch.rand(16, 8) + 0.1)
         label = torch.rand(16)
         loss = loss_fn(z_i, z_j, label)
         assert loss.shape == ()
+        loss.backward()
+        assert z_i.mu.grad is not None
+
+    def test_phase2_without_var_is_a_loud_error(self):
+        loss_fn = MahalanobisBCELoss(include_std=True)
+        z = Z(mu=torch.randn(4, 8))
+        with pytest.raises(ContractError, match="var"):
+            loss_fn(z, z, torch.rand(4))
+
+    def test_phase1_needs_mu_only(self):
+        assert MahalanobisBCELoss(include_std=False).needs["z"] == frozenset({"mu"})
 
 
 def _make_dbscan_binner(n: int) -> DBSCANEnsembleBinner:

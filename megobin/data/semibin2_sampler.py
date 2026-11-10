@@ -4,6 +4,13 @@ from torch.utils.data import Dataset
 
 
 class SemiBin2PairSampler(Dataset):
+    #: Contract. ``provides`` are the batch labels a loss may require; ``needs``
+    #: are labels on the ``features`` port; ``bindings`` map constructor kwargs
+    #: to named values (replaces ``__init__`` introspection in pipeline.py).
+    provides = frozenset({"views=2", "label"})
+    needs = {"features": frozenset({"split"})}
+    bindings = {"features_split": "features_split"}
+
     def __init__(
         self,
         features_split: np.ndarray,
