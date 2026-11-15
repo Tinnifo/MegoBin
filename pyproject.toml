@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "megobin"
 version = "0.1.0"
 description = "Modular research pipeline for metagenomic binning"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
@@ -44,7 +44,7 @@ filterwarnings = [
 
 [tool.mypy]
 files = ["megobin"]
-python_version = "3.10"
+python_version = "3.11"
 ignore_missing_imports = true
 follow_imports = "silent"
 warn_unused_ignores = true
