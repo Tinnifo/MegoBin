@@ -6,7 +6,7 @@ channels:
   - defaults
 dependencies:
   # Core
-  - python=3.10
+  - python=3.11          # snakemake>=8 requires Python >=3.11
   - pytorch=2.3.*
   - torchvision
   - torchaudio
