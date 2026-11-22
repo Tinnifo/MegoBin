@@ -6,8 +6,8 @@ channels:
   - defaults
 dependencies:
   # Core
-  - python=3.10
-  - pytorch=2.3.*
+  - python=3.11               # snakemake>=8 requires Python >=3.11
+  - pytorch=2.5.*             # newest 2.x still published for pytorch-cuda=12.1
   - torchvision
   - torchaudio
   - pytorch-cuda=12.1          # Match CUDA on clusters (DEIS-MCC has 13.2, backward compat)
