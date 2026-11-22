@@ -53,4 +53,4 @@ Output lands in `outputs/<date>/<time>/` — fully-resolved config, checkpoint, 
 
 ## Requirements
 
-Python ≥3.10. Core deps (PyTorch, Hydra, scikit-learn, etc.) install via `environment.yml`. The marker-aware DBSCAN binner optionally uses `hmmsearch`; CheckM2 is optional for evaluation. Full details in [installation.md](docs/02-getting-started/installation.md).
+Python ≥3.11. Core deps (PyTorch, Hydra, scikit-learn, etc.) install via `environment.yml`. The marker-aware DBSCAN binner optionally uses `hmmsearch`; CheckM2 is optional for evaluation. Full details in [installation.md](docs/02-getting-started/installation.md).
